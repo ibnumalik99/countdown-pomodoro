@@ -1,4 +1,4 @@
-# CountdownHour
+# CountDown Hour and Pomodoro - Simple & Clean UI
 
 A minimalist Android countdown timer app with Pomodoro functionality, optimized for e-ink displays.
 <br/>
