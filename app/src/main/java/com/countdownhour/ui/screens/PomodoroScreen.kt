@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -89,8 +90,8 @@ fun PomodoroScreen(
     if (isLandscape) {
         PomodoroLandscapeLayout(
             state = state,
-            onStartWork = { viewModel.startWork() },
-            onStartBreak = { viewModel.startBreak() },
+            onStartWork = { duration -> viewModel.startWork(duration) },
+            onStartBreak = { duration -> viewModel.startBreak(duration) },
             onPause = { viewModel.pause() },
             onResume = { viewModel.resume() },
             onReset = { viewModel.reset() },
@@ -100,8 +101,8 @@ fun PomodoroScreen(
     } else {
         PomodoroPortraitLayout(
             state = state,
-            onStartWork = { viewModel.startWork() },
-            onStartBreak = { viewModel.startBreak() },
+            onStartWork = { duration -> viewModel.startWork(duration) },
+            onStartBreak = { duration -> viewModel.startBreak(duration) },
             onPause = { viewModel.pause() },
             onResume = { viewModel.resume() },
             onReset = { viewModel.reset() },
@@ -140,8 +141,8 @@ private fun formatElapsedTime(elapsedMillis: Long): String {
 @Composable
 private fun PomodoroPortraitLayout(
     state: PomodoroState,
-    onStartWork: () -> Unit,
-    onStartBreak: () -> Unit,
+    onStartWork: (Int) -> Unit,
+    onStartBreak: (Int) -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onReset: () -> Unit,
@@ -150,6 +151,18 @@ private fun PomodoroPortraitLayout(
 ) {
     // Track elapsed time since session completed
     var elapsedSinceCompletion by remember { mutableLongStateOf(0L) }
+
+    // Quick access durations (reset when settings change or on reset)
+    val isReset = state.completedPomodoros == 0 && state.phase == PomodoroPhase.IDLE
+    var focusDuration by remember(state.settings.workDurationMinutes, isReset) {
+        mutableStateOf(state.settings.workDurationMinutes)
+    }
+    val breakDuration = if (state.currentPomodoroInCycle >= state.settings.pomodorosUntilLongBreak) {
+        state.settings.longBreakMinutes
+    } else {
+        state.settings.shortBreakMinutes
+    }
+    var customBreakDuration by remember(breakDuration, isReset) { mutableStateOf(breakDuration) }
 
     LaunchedEffect(state.sessionCompletedAt) {
         if (state.sessionCompletedAt != null && state.phase == PomodoroPhase.IDLE) {
@@ -258,8 +271,13 @@ private fun PomodoroPortraitLayout(
         PomodoroControlButtons(
             phase = state.phase,
             completedPomodoros = state.completedPomodoros,
-            onStartWork = onStartWork,
-            onStartBreak = onStartBreak,
+            focusDuration = focusDuration,
+            breakDuration = customBreakDuration,
+            isLongBreak = state.currentPomodoroInCycle >= state.settings.pomodorosUntilLongBreak,
+            onFocusDurationChange = { focusDuration = (focusDuration + it).coerceIn(5, 120) },
+            onBreakDurationChange = { customBreakDuration = (customBreakDuration + it).coerceIn(1, 60) },
+            onStartWork = { onStartWork(focusDuration) },
+            onStartBreak = { onStartBreak(customBreakDuration) },
             onPause = onPause,
             onResume = onResume,
             onReset = onReset,
@@ -271,8 +289,8 @@ private fun PomodoroPortraitLayout(
 @Composable
 private fun PomodoroLandscapeLayout(
     state: PomodoroState,
-    onStartWork: () -> Unit,
-    onStartBreak: () -> Unit,
+    onStartWork: (Int) -> Unit,
+    onStartBreak: (Int) -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onReset: () -> Unit,
@@ -281,6 +299,18 @@ private fun PomodoroLandscapeLayout(
 ) {
     // Track elapsed time since session completed
     var elapsedSinceCompletion by remember { mutableLongStateOf(0L) }
+
+    // Quick access durations (reset when settings change or on reset)
+    val isReset = state.completedPomodoros == 0 && state.phase == PomodoroPhase.IDLE
+    var focusDuration by remember(state.settings.workDurationMinutes, isReset) {
+        mutableStateOf(state.settings.workDurationMinutes)
+    }
+    val breakDuration = if (state.currentPomodoroInCycle >= state.settings.pomodorosUntilLongBreak) {
+        state.settings.longBreakMinutes
+    } else {
+        state.settings.shortBreakMinutes
+    }
+    var customBreakDuration by remember(breakDuration, isReset) { mutableStateOf(breakDuration) }
 
     LaunchedEffect(state.sessionCompletedAt) {
         if (state.sessionCompletedAt != null && state.phase == PomodoroPhase.IDLE) {
@@ -409,8 +439,13 @@ private fun PomodoroLandscapeLayout(
             PomodoroControlButtons(
                 phase = state.phase,
                 completedPomodoros = state.completedPomodoros,
-                onStartWork = onStartWork,
-                onStartBreak = onStartBreak,
+                focusDuration = focusDuration,
+                breakDuration = customBreakDuration,
+                isLongBreak = state.currentPomodoroInCycle >= state.settings.pomodorosUntilLongBreak,
+                onFocusDurationChange = { focusDuration = (focusDuration + it).coerceIn(5, 120) },
+                onBreakDurationChange = { customBreakDuration = (customBreakDuration + it).coerceIn(1, 60) },
+                onStartWork = { onStartWork(focusDuration) },
+                onStartBreak = { onStartBreak(customBreakDuration) },
                 onPause = onPause,
                 onResume = onResume,
                 onReset = onReset,
@@ -422,9 +457,64 @@ private fun PomodoroLandscapeLayout(
 }
 
 @Composable
+private fun DurationAdjuster(
+    value: Int,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    compact: Boolean = false
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp)
+    ) {
+        FilledIconButton(
+            onClick = onDecrease,
+            modifier = Modifier.size(if (compact) 28.dp else 32.dp),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Text(
+                text = "−5",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Text(
+            text = "${value}mn",
+            style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.width(if (compact) 40.dp else 48.dp),
+            textAlign = TextAlign.Center
+        )
+
+        FilledIconButton(
+            onClick = onIncrease,
+            modifier = Modifier.size(if (compact) 28.dp else 32.dp),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Text(
+                text = "+5",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
 private fun PomodoroControlButtons(
     phase: PomodoroPhase,
     completedPomodoros: Int,
+    focusDuration: Int = 25,
+    breakDuration: Int = 5,
+    isLongBreak: Boolean = false,
+    onFocusDurationChange: (Int) -> Unit = {},
+    onBreakDurationChange: (Int) -> Unit = {},
     onStartWork: () -> Unit,
     onStartBreak: () -> Unit,
     onPause: () -> Unit,
@@ -440,31 +530,58 @@ private fun PomodoroControlButtons(
         PomodoroPhase.IDLE -> {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)
             ) {
-                OutlinedButton(
-                    onClick = onStartWork,
-                    modifier = if (compact) Modifier.width(140.dp) else Modifier.fillMaxWidth(0.6f)
+                // Focus section
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)
                 ) {
-                    Text("Start Focus", style = MaterialTheme.typography.labelLarge)
+                    OutlinedButton(
+                        onClick = onStartWork,
+                        modifier = if (compact) Modifier.width(120.dp) else Modifier.width(160.dp)
+                    ) {
+                        Text(
+                            "Focus ${focusDuration}mn",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                    DurationAdjuster(
+                        value = focusDuration,
+                        onDecrease = { onFocusDurationChange(-5) },
+                        onIncrease = { onFocusDurationChange(5) },
+                        compact = compact
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedButton(
-                    onClick = onStartBreak,
-                    modifier = if (compact) Modifier.width(140.dp) else Modifier.fillMaxWidth(0.6f)
+                // Break section
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)
                 ) {
-                    Text("Take Break", style = MaterialTheme.typography.labelLarge)
+                    OutlinedButton(
+                        onClick = onStartBreak,
+                        modifier = if (compact) Modifier.width(120.dp) else Modifier.width(160.dp)
+                    ) {
+                        Text(
+                            if (isLongBreak) "Long ${breakDuration}mn" else "Break ${breakDuration}mn",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                    DurationAdjuster(
+                        value = breakDuration,
+                        onDecrease = { onBreakDurationChange(-5) },
+                        onIncrease = { onBreakDurationChange(5) },
+                        compact = compact
+                    )
                 }
 
                 // Reset button to clear completed count (only if > 0)
                 if (completedPomodoros > 0) {
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     FilledIconButton(
                         onClick = onReset,
-                        modifier = Modifier.size(if (compact) 40.dp else 48.dp),
+                        modifier = Modifier.size(if (compact) 36.dp else 40.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
@@ -472,7 +589,7 @@ private fun PomodoroControlButtons(
                         Icon(
                             Icons.Default.Refresh,
                             contentDescription = "Reset",
-                            modifier = Modifier.size(if (compact) 20.dp else 24.dp)
+                            modifier = Modifier.size(if (compact) 18.dp else 20.dp)
                         )
                     }
                 }

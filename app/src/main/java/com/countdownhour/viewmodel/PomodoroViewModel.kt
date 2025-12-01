@@ -28,10 +28,11 @@ class PomodoroViewModel : ViewModel() {
         appContext = context.applicationContext
     }
 
-    fun startWork() {
+    fun startWork(customDurationMinutes: Int? = null) {
         val state = _pomodoroState.value
         val settings = state.settings
-        val totalMillis = settings.workDurationMinutes * 60 * 1000L
+        val durationMinutes = customDurationMinutes ?: settings.workDurationMinutes
+        val totalMillis = durationMinutes * 60 * 1000L
         endTimeMillis = System.currentTimeMillis() + totalMillis
         currentPhaseForResume = PomodoroPhase.WORK
 
@@ -54,17 +55,18 @@ class PomodoroViewModel : ViewModel() {
         startCountdown()
     }
 
-    fun startBreak() {
+    fun startBreak(customDurationMinutes: Int? = null) {
         val state = _pomodoroState.value
         val settings = state.settings
         // Long break is available when all pomodoros in cycle are completed
         val isLongBreak = state.currentPomodoroInCycle >= settings.pomodorosUntilLongBreak
 
-        val breakDuration = if (isLongBreak) {
+        val defaultBreakDuration = if (isLongBreak) {
             settings.longBreakMinutes
         } else {
             settings.shortBreakMinutes
         }
+        val breakDuration = customDurationMinutes ?: defaultBreakDuration
 
         val totalMillis = breakDuration * 60 * 1000L
         val newPhase = if (isLongBreak) PomodoroPhase.LONG_BREAK else PomodoroPhase.SHORT_BREAK

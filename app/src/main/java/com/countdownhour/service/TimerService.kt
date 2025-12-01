@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.media.RingtoneManager
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -161,6 +162,7 @@ class TimerService : Service() {
                 if (remaining <= 0) {
                     _countdownRemainingMillis.value = 0
                     _countdownRunning.value = false
+                    playCompletionSound()
                     onCountdownComplete?.invoke()
                     updateNotification("Countdown", "Finished!")
                 } else {
@@ -198,6 +200,7 @@ class TimerService : Service() {
                     _pomodoroRemainingMillis.value = 0
                     _pomodoroRunning.value = false
                     _pomodoroPhase.value = PomodoroPhase.IDLE
+                    playCompletionSound()
                     onPomodoroComplete?.invoke()
                     updateNotification(phaseLabel, "Finished!")
                 } else {
@@ -284,6 +287,16 @@ class TimerService : Service() {
             String.format("%02d:%02d:%02d", hours, minutes, seconds)
         } else {
             String.format("%02d:%02d", minutes, seconds)
+        }
+    }
+
+    private fun playCompletionSound() {
+        try {
+            val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val ringtone = RingtoneManager.getRingtone(applicationContext, notification)
+            ringtone?.play()
+        } catch (e: Exception) {
+            // Silently fail if sound can't be played
         }
     }
 
