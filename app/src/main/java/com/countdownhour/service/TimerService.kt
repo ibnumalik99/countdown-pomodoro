@@ -197,10 +197,12 @@ class TimerService : Service() {
                 delay(1000L)
                 val remaining = pomodoroEndTime - System.currentTimeMillis()
                 if (remaining <= 0) {
+                    val wasBreak = _pomodoroPhase.value == PomodoroPhase.SHORT_BREAK ||
+                                   _pomodoroPhase.value == PomodoroPhase.LONG_BREAK
                     _pomodoroRemainingMillis.value = 0
                     _pomodoroRunning.value = false
                     _pomodoroPhase.value = PomodoroPhase.IDLE
-                    playCompletionSound()
+                    playCompletionSound(isBreakEnd = wasBreak)
                     onPomodoroComplete?.invoke()
                     updateNotification(phaseLabel, "Finished!")
                 } else {
@@ -290,11 +292,19 @@ class TimerService : Service() {
         }
     }
 
-    private fun playCompletionSound() {
+    private fun playCompletionSound(isBreakEnd: Boolean = false) {
         try {
             val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             val ringtone = RingtoneManager.getRingtone(applicationContext, notification)
             ringtone?.play()
+
+            if (isBreakEnd) {
+                // Double sound for break end (time to focus!)
+                serviceScope.launch {
+                    delay(350L)
+                    RingtoneManager.getRingtone(applicationContext, notification)?.play()
+                }
+            }
         } catch (e: Exception) {
             // Silently fail if sound can't be played
         }

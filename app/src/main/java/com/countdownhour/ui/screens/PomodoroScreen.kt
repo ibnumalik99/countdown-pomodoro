@@ -34,7 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -461,8 +464,11 @@ private fun DurationAdjuster(
     value: Int,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
+    onFineTune: (Int) -> Unit,
     compact: Boolean = false
 ) {
+    val dragThreshold = 30f // pixels per 1 minute change
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp)
@@ -481,13 +487,43 @@ private fun DurationAdjuster(
             )
         }
 
+        // Swipeable value - swipe up to increase, down to decrease
         Text(
             text = "${value}mn",
             style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(if (compact) 40.dp else 48.dp),
-            textAlign = TextAlign.Center
+            modifier = Modifier
+                .width(if (compact) 40.dp else 48.dp)
+                .pointerInput(Unit) {
+                    var totalDrag = 0f
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull()
+                            if (change != null && change.pressed) {
+                                val dragAmount = change.position.y - (change.previousPosition.y)
+                                totalDrag += dragAmount
+
+                                // Negative drag = swipe up = increase
+                                // Positive drag = swipe down = decrease
+                                while (totalDrag <= -dragThreshold) {
+                                    onFineTune(1)
+                                    totalDrag += dragThreshold
+                                }
+                                while (totalDrag >= dragThreshold) {
+                                    onFineTune(-1)
+                                    totalDrag -= dragThreshold
+                                }
+                                change.consume()
+                            } else {
+                                totalDrag = 0f
+                            }
+                        }
+                    }
+                },
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.primary
         )
 
         FilledIconButton(
@@ -551,6 +587,7 @@ private fun PomodoroControlButtons(
                         value = focusDuration,
                         onDecrease = { onFocusDurationChange(-5) },
                         onIncrease = { onFocusDurationChange(5) },
+                        onFineTune = { onFocusDurationChange(it) },
                         compact = compact
                     )
                 }
@@ -573,6 +610,7 @@ private fun PomodoroControlButtons(
                         value = breakDuration,
                         onDecrease = { onBreakDurationChange(-5) },
                         onIncrease = { onBreakDurationChange(5) },
+                        onFineTune = { onBreakDurationChange(it) },
                         compact = compact
                     )
                 }
