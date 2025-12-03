@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -256,6 +257,7 @@ private fun SwipeableTimeDisplay(
         Box(
             modifier = Modifier
                 .weight(1f)
+                .fillMaxHeight()
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown()
@@ -320,6 +322,7 @@ private fun SwipeableTimeDisplay(
         Box(
             modifier = Modifier
                 .weight(1f)
+                .fillMaxHeight()
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown()

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.countdownhour.data.PomodoroPhase
 import com.countdownhour.data.PomodoroSettings
 import com.countdownhour.data.PomodoroState
+import com.countdownhour.data.PomodoroTodo
 import com.countdownhour.service.TimerService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -180,6 +181,38 @@ class PomodoroViewModel : ViewModel() {
                 )
             }
         }
+    }
+
+    // Todo management
+    fun addTodo(text: String) {
+        val state = _pomodoroState.value
+        if (state.todos.size < 3 && text.isNotBlank()) {
+            val newTodo = PomodoroTodo(text = text.trim())
+            _pomodoroState.value = state.copy(
+                todos = state.todos + newTodo
+            )
+        }
+    }
+
+    fun removeTodo(id: String) {
+        val state = _pomodoroState.value
+        _pomodoroState.value = state.copy(
+            todos = state.todos.filter { it.id != id }
+        )
+    }
+
+    fun toggleTodo(id: String) {
+        val state = _pomodoroState.value
+        _pomodoroState.value = state.copy(
+            todos = state.todos.map { todo ->
+                if (todo.id == id) todo.copy(isCompleted = !todo.isCompleted)
+                else todo
+            }
+        )
+    }
+
+    fun clearTodos() {
+        _pomodoroState.value = _pomodoroState.value.copy(todos = emptyList())
     }
 
     override fun onCleared() {

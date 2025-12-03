@@ -1,7 +1,10 @@
 package com.countdownhour.ui.screens
 
 import android.content.res.Configuration
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,18 +14,30 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -42,11 +57,15 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.countdownhour.data.PomodoroTodo
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -72,6 +91,7 @@ fun PomodoroScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     var showSettings by remember { mutableStateOf(false) }
+    var showTodoDialog by remember { mutableStateOf(false) }
 
     // Set context for service integration
     LaunchedEffect(Unit) {
@@ -100,7 +120,9 @@ fun PomodoroScreen(
             onResume = { viewModel.resume() },
             onReset = { viewModel.reset() },
             onSkip = { viewModel.skipPhase() },
-            onShowSettings = { showSettings = true }
+            onShowSettings = { showSettings = true },
+            onShowTodos = { showTodoDialog = true },
+            onToggleTodo = { viewModel.toggleTodo(it) }
         )
     } else {
         PomodoroPortraitLayout(
@@ -111,7 +133,9 @@ fun PomodoroScreen(
             onResume = { viewModel.resume() },
             onReset = { viewModel.reset() },
             onSkip = { viewModel.skipPhase() },
-            onShowSettings = { showSettings = true }
+            onShowSettings = { showSettings = true },
+            onShowTodos = { showTodoDialog = true },
+            onToggleTodo = { viewModel.toggleTodo(it) }
         )
     }
 
@@ -124,6 +148,16 @@ fun PomodoroScreen(
                 viewModel.updateSettings(settings)
                 showSettings = false
             }
+        )
+    }
+
+    // Todo dialog
+    if (showTodoDialog) {
+        PomodoroTodoDialog(
+            todos = state.todos,
+            onDismiss = { showTodoDialog = false },
+            onAddTodo = { viewModel.addTodo(it) },
+            onRemoveTodo = { viewModel.removeTodo(it) }
         )
     }
 }
@@ -160,7 +194,9 @@ private fun PomodoroPortraitLayout(
     onResume: () -> Unit,
     onReset: () -> Unit,
     onSkip: () -> Unit,
-    onShowSettings: () -> Unit
+    onShowSettings: () -> Unit,
+    onShowTodos: () -> Unit,
+    onToggleTodo: (String) -> Unit
 ) {
     // Track elapsed time since session completed
     var elapsedSinceCompletion by remember { mutableLongStateOf(0L) }
@@ -194,12 +230,31 @@ private fun PomodoroPortraitLayout(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Settings button (only when idle)
+        // Todo and Settings buttons (only when idle)
         if (state.phase == PomodoroPhase.IDLE) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                // Todo button
+                FilledIconButton(
+                    onClick = onShowTodos,
+                    modifier = Modifier.size(40.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = if (state.todos.isNotEmpty())
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.FormatListBulleted,
+                        contentDescription = "Todos",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Settings button
                 FilledIconButton(
                     onClick = onShowSettings,
                     modifier = Modifier.size(40.dp),
@@ -225,6 +280,15 @@ private fun PomodoroPortraitLayout(
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
+
+        // Todo list during focus
+        if (state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            FocusTodoList(
+                todos = state.todos,
+                onToggle = onToggleTodo
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -318,7 +382,9 @@ private fun PomodoroLandscapeLayout(
     onResume: () -> Unit,
     onReset: () -> Unit,
     onSkip: () -> Unit,
-    onShowSettings: () -> Unit
+    onShowSettings: () -> Unit,
+    onShowTodos: () -> Unit,
+    onToggleTodo: (String) -> Unit
 ) {
     // Track elapsed time since session completed
     var elapsedSinceCompletion by remember { mutableLongStateOf(0L) }
@@ -359,12 +425,31 @@ private fun PomodoroLandscapeLayout(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Settings button (only when idle)
+            // Todo and Settings buttons (only when idle)
             if (state.phase == PomodoroPhase.IDLE) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    // Todo button
+                    FilledIconButton(
+                        onClick = onShowTodos,
+                        modifier = Modifier.size(36.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = if (state.todos.isNotEmpty())
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.FormatListBulleted,
+                            contentDescription = "Todos",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    // Settings button
                     FilledIconButton(
                         onClick = onShowSettings,
                         modifier = Modifier.size(36.dp),
@@ -390,6 +475,16 @@ private fun PomodoroLandscapeLayout(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+
+            // Todo list during focus
+            if (state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                FocusTodoList(
+                    todos = state.todos,
+                    onToggle = onToggleTodo,
+                    compact = true
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -741,4 +836,200 @@ private fun PomodoroControlButtons(
             }
         }
     }
+}
+
+@Composable
+private fun FocusTodoList(
+    todos: List<PomodoroTodo>,
+    onToggle: (String) -> Unit,
+    compact: Boolean = false
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = if (compact) 8.dp else 16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        todos.forEachIndexed { index, todo ->
+            val isFirst = index == 0
+            val alpha = if (isFirst) 1f else 0.6f
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (todo.isCompleted)
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        else
+                            Color.Transparent
+                    )
+                    .clickable { onToggle(todo.id) }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (todo.isCompleted)
+                        Icons.Default.CheckBox
+                    else
+                        Icons.Default.CheckBoxOutlineBlank,
+                    contentDescription = null,
+                    modifier = Modifier.size(if (compact) 16.dp else 20.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = todo.text,
+                    style = if (compact)
+                        MaterialTheme.typography.bodySmall
+                    else
+                        MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+                    textDecoration = if (todo.isCompleted)
+                        TextDecoration.LineThrough
+                    else
+                        TextDecoration.None,
+                    maxLines = 2
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PomodoroTodoDialog(
+    todos: List<PomodoroTodo>,
+    onDismiss: () -> Unit,
+    onAddTodo: (String) -> Unit,
+    onRemoveTodo: (String) -> Unit
+) {
+    var inputText by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Done")
+            }
+        },
+        title = { Text("Focus Tasks") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Input row (only if less than 3 todos)
+                if (todos.size < 3) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                        ) {
+                            if (inputText.isEmpty()) {
+                                Text(
+                                    text = "What to focus on...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                )
+                            }
+                            BasicTextField(
+                                value = inputText,
+                                onValueChange = { if (it.length <= 50) inputText = it },
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface
+                                ),
+                                singleLine = false,
+                                maxLines = 2,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        if (inputText.isNotBlank()) {
+                                            onAddTodo(inputText)
+                                            inputText = ""
+                                        }
+                                    }
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        FilledIconButton(
+                            onClick = {
+                                if (inputText.isNotBlank()) {
+                                    onAddTodo(inputText)
+                                    inputText = ""
+                                }
+                            },
+                            modifier = Modifier.size(40.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Add",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Todo list
+                if (todos.isNotEmpty()) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        todos.forEach { todo ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = todo.text,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 2
+                                )
+
+                                IconButton(
+                                    onClick = { onRemoveTodo(todo.id) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Remove",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "Add up to 3 tasks to focus on during your session",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    )
 }

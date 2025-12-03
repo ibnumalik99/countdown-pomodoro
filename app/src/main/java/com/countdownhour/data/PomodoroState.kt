@@ -1,5 +1,13 @@
 package com.countdownhour.data
 
+import java.util.UUID
+
+data class PomodoroTodo(
+    val id: String = UUID.randomUUID().toString(),
+    val text: String,
+    val isCompleted: Boolean = false
+)
+
 enum class PomodoroPhase {
     IDLE,           // Not started
     WORK,           // 25 min work session
@@ -22,7 +30,8 @@ data class PomodoroState(
     val completedPomodoros: Int = 0,
     val currentPomodoroInCycle: Int = 0,
     val settings: PomodoroSettings = PomodoroSettings(),
-    val sessionCompletedAt: Long? = null  // Timestamp when session finished (for idle timer)
+    val sessionCompletedAt: Long? = null,  // Timestamp when session finished (for idle timer)
+    val todos: List<PomodoroTodo> = emptyList()
 ) {
     val remainingMinutes: Int
         get() = (remainingMillis / 60000).toInt()
