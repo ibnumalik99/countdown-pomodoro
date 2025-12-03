@@ -5,14 +5,16 @@ A minimalist Android countdown timer app with Pomodoro functionality, optimized 
 <br/>
 
 <img width="206" height="412" alt="Countdown Hour_20251130-194014" src="https://github.com/user-attachments/assets/e81ff049-59f6-4862-9f7b-8a2f99894f5f" />
-<img width="206" height="412" alt="Countdown Hour_20251130-194027" src="https://github.com/user-attachments/assets/a211fd2e-bc30-4547-9015-cf9c2d2476b3" />
-<img width="206" height="412" alt="Countdown Hour_20251130-194035" src="https://github.com/user-attachments/assets/0f4cde23-cdbb-40ce-8603-061c5f8d09ff" />
-<img width="206" height="412" alt="Countdown Hour_20251130-194047" src="https://github.com/user-attachments/assets/e1923bcd-d952-4cc0-b8bf-2a13df0c1a77" />
-<img width="206" height="412" alt="Countdown Hour_20251130-194107" src="https://github.com/user-attachments/assets/3a693793-b10b-4275-b7c1-8aa4e2b354eb" />
-<img width="206" height="412" alt="Countdown Hour_20251130-194116" src="https://github.com/user-attachments/assets/1c1b1b19-4ce5-4a17-9754-c71fb2e8162c" />
-<img width="206" height="412" alt="Countdown Hour_20251130-194132" src="https://github.com/user-attachments/assets/b4426c6e-e27c-410e-84bc-0017808eb1c5" />
+<img width="206" height="412" alt="Countdown Hour_20251203-185152" src="https://github.com/user-attachments/assets/6f816236-5c13-4f93-af66-8d6393542305" />
+<img width="206" height="412" alt="Countdown Hour_20251203-185030" src="https://github.com/user-attachments/assets/8588f728-0169-4c32-a0b3-3e7ec9c02f0a" />
+<img width="206" height="412" alt="Countdown Hour_20251203-185044" src="https://github.com/user-attachments/assets/7fffa397-aade-40e0-a2dc-e6ae7dd10b57" />
+<img width="206" height="412" alt="Countdown Hour_20251203-185118" src="https://github.com/user-attachments/assets/947cdd0a-4b6d-46dc-b361-374812bb3d87" />
 <img width="206" height="412" alt="Countdown Hour_20251130-194153" src="https://github.com/user-attachments/assets/ad839f6e-38ca-4892-a561-bb17e3fa181e" />
-<img width="412" height="206" alt="Countdown Hour_20251130-194142" src="https://github.com/user-attachments/assets/eff24f8b-c85c-4848-8ba0-ece1f0a81fe4" />
+<br/>
+
+<img width="412" height="206" alt="Countdown Hour_20251203-185218" src="https://github.com/user-attachments/assets/e5d142d0-4c99-4792-ba2b-d9e67a39d94f" />
+<img width="412" height="206" alt="Countdown Hour_20251203-185130" src="https://github.com/user-attachments/assets/a515da77-299a-455e-9cd7-20798eaff100" />
+
 
 
 ## Features
