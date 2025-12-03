@@ -127,7 +127,8 @@ fun PomodoroScreen(
             onRemoveTodo = { viewModel.removeTodoFromPool(it) },
             onToggleSelection = { viewModel.toggleTodoSelection(it) },
             onToggleCompletion = { viewModel.toggleTodoPoolCompletion(it) },
-            onClearAll = { viewModel.clearAllTodos() }
+            onClearAll = { viewModel.clearAllTodos() },
+            onClearCompleted = { viewModel.clearCompletedTodos() }
         )
     } else {
         if (isLandscape) {
@@ -1172,7 +1173,8 @@ private fun TodoPoolScreen(
     onRemoveTodo: (String) -> Unit,
     onToggleSelection: (String) -> Unit,
     onToggleCompletion: (String) -> Unit,
-    onClearAll: () -> Unit
+    onClearAll: () -> Unit,
+    onClearCompleted: () -> Unit
 ) {
     var inputText by remember { mutableStateOf("") }
 
@@ -1211,7 +1213,8 @@ private fun TodoPoolScreen(
                             .clip(RoundedCornerShape(20.dp))
                             .pointerInput(Unit) {
                                 detectTapGestures(
-                                    onDoubleTap = { onClearAll() }
+                                    onDoubleTap = { onClearAll() },
+                                    onLongPress = { onClearCompleted() }
                                 )
                             },
                         contentAlignment = Alignment.Center

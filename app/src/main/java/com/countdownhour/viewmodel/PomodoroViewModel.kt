@@ -243,6 +243,17 @@ class PomodoroViewModel : ViewModel() {
         persistData()
     }
 
+    fun clearCompletedTodos() {
+        val state = _pomodoroState.value
+        val completedIds = state.todoPool.filter { it.isCompleted }.map { it.id }.toSet()
+        _pomodoroState.value = state.copy(
+            todoPool = state.todoPool.filter { !it.isCompleted },
+            selectedTodoIds = state.selectedTodoIds - completedIds,
+            todos = state.todos.filter { !it.isCompleted }
+        )
+        persistData()
+    }
+
     fun skipPhase() {
         timerJob?.cancel()
         onPhaseComplete()
