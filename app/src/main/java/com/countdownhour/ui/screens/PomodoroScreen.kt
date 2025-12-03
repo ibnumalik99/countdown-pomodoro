@@ -987,13 +987,20 @@ private fun TodoPoolScreen(
                 )
 
                 if (todos.isNotEmpty()) {
-                    IconButton(
-                        onClick = onClearAll,
-                        modifier = Modifier.size(40.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onDoubleTap = { onClearAll() }
+                                )
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.DeleteOutline,
-                            contentDescription = "Clear all tasks",
+                            contentDescription = "Double tap to clear all tasks",
                             modifier = Modifier.size(24.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
