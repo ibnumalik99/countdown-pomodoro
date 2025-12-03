@@ -47,9 +47,18 @@ A minimalist Android countdown timer app with Pomodoro functionality, optimized 
 - Tasks displayed in subtle card during focus
 - Tap to mark tasks as completed (strikethrough)
 - Completed tasks auto-unselected and moved to "DONE" section
-- Long press on tasks to toggle completion in pool
-- Long press on Focus button to start without task selection
-- Double tap trash icon to clear all tasks
+
+### Gestures & Shortcuts
+| Action | Gesture |
+|--------|---------|
+| Start focus without tasks | Long press Focus button |
+| Add 5 minutes to session | Tap +5 button |
+| Add 1 minute to session | Long press +5 button |
+| Adjust time during session | Swipe up/down on timer |
+| Fine-tune duration (±1 min) | Swipe up/down on duration text |
+| Toggle task completion in pool | Long press on task |
+| Clear all tasks | Double tap trash icon |
+| Clear only completed tasks | Long press trash icon |
 
 ### Data Persistence
 - Tasks, settings, and progress saved automatically
