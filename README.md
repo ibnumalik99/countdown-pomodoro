@@ -19,6 +19,8 @@ A minimalist Android countdown timer app with Pomodoro functionality, optimized 
 
 ### Countdown Timer
 - Set a target time (24h format) and countdown until you reach it
+- Custom time picker with swipe gestures (swipe up/down to adjust)
+- Tap on hour/minute to fine-tune by ±1
 - Visual circular progress indicator
 - Real-time summary showing NOW → DIFF → TARGET
 - Pause/Resume/Stop controls
@@ -33,6 +35,16 @@ A minimalist Android countdown timer app with Pomodoro functionality, optimized 
   - Pomodoros until long break (default: 4)
 - Visual progress tracking with cycle indicators
 - Completed pomodoros counter
+- Elapsed time display after session completion
+
+### Task Management
+- Task pool to store up to 15 tasks
+- Select up to 5 tasks for each focus session
+- Tasks displayed in subtle card during focus
+- Tap to mark tasks as completed (strikethrough)
+- Completed tasks auto-unselected and moved to "DONE" section
+- Long press on tasks to toggle completion in pool
+- Long press on Focus button to start without task selection
 
 ### E-Ink Optimized
 - High contrast black & white theme
