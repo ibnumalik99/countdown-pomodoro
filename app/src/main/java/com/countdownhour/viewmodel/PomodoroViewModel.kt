@@ -45,12 +45,14 @@ class PomodoroViewModel : ViewModel() {
                 val todoPool = store.todoPoolFlow.first()
                 val selectedIds = store.selectedTodoIdsFlow.first()
                 val completedPomodoros = store.completedPomodorosFlow.first()
+                val currentCycle = store.currentCycleFlow.first()
 
                 _pomodoroState.value = _pomodoroState.value.copy(
                     settings = settings,
                     todoPool = todoPool,
                     selectedTodoIds = selectedIds,
-                    completedPomodoros = completedPomodoros
+                    completedPomodoros = completedPomodoros,
+                    currentPomodoroInCycle = currentCycle
                 )
             }
         }
@@ -64,6 +66,7 @@ class PomodoroViewModel : ViewModel() {
                 store.saveTodoPool(state.todoPool)
                 store.saveSelectedTodoIds(state.selectedTodoIds)
                 store.saveCompletedPomodoros(state.completedPomodoros)
+                store.saveCurrentCycle(state.currentPomodoroInCycle)
             }
         }
     }
@@ -179,6 +182,7 @@ class PomodoroViewModel : ViewModel() {
                     remainingMillis = 0L,
                     sessionCompletedAt = System.currentTimeMillis()
                 )
+                persistData()  // Save cycle reset
             }
             else -> {}
         }

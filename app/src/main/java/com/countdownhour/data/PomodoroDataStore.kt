@@ -23,6 +23,7 @@ class PomodoroDataStore(private val context: Context) {
         private val TODO_POOL_KEY = stringPreferencesKey("todo_pool")
         private val SELECTED_TODO_IDS_KEY = stringPreferencesKey("selected_todo_ids")
         private val COMPLETED_POMODOROS_KEY = intPreferencesKey("completed_pomodoros")
+        private val CURRENT_CYCLE_KEY = intPreferencesKey("current_pomodoro_in_cycle")
     }
 
     // Settings
@@ -84,6 +85,17 @@ class PomodoroDataStore(private val context: Context) {
     suspend fun saveCompletedPomodoros(count: Int) {
         context.dataStore.edit { prefs ->
             prefs[COMPLETED_POMODOROS_KEY] = count
+        }
+    }
+
+    // Current Pomodoro in Cycle
+    val currentCycleFlow: Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[CURRENT_CYCLE_KEY] ?: 0
+    }
+
+    suspend fun saveCurrentCycle(count: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[CURRENT_CYCLE_KEY] = count
         }
     }
 }
