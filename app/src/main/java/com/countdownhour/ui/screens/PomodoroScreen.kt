@@ -431,178 +431,283 @@ private fun PomodoroLandscapeLayout(
     }
 
     val hasTodosInFocus = state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()
+    val hasMultipleTodos = state.phase == PomodoroPhase.WORK && state.todos.size > 1
 
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(if (hasTodosInFocus) 12.dp else 24.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = if (hasTodosInFocus) Alignment.Top else Alignment.CenterVertically
-    ) {
-        // Left side - Large timer display
-        Column(
-            modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = if (hasTodosInFocus) Arrangement.Top else Arrangement.Center
+    // Compact layout when multiple todos in focus (tasks left, timer right, no circle)
+    if (hasMultipleTodos) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Todo and Settings buttons (only when idle)
-            if (state.phase == PomodoroPhase.IDLE) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Todo button
-                    FilledIconButton(
-                        onClick = onShowTodos,
-                        modifier = Modifier.size(36.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = if (state.todoPool.isNotEmpty())
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Icon(
-                            Icons.Default.FormatListBulleted,
-                            contentDescription = "Todos",
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    // Settings button
-                    FilledIconButton(
-                        onClick = onShowSettings,
-                        modifier = Modifier.size(36.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Icon(
-                            Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-
-            // Todo list during focus (at very top)
-            if (state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()) {
+            // Left side - Tasks
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.Top
+            ) {
                 FocusTodoList(
                     todos = state.todos,
                     onToggle = onToggleTodo,
-                    compact = true
+                    compact = false
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-            } else {
+            }
+
+            // Right side - Timer and controls (no circle)
+            Column(
+                modifier = Modifier
+                    .weight(0.8f)
+                    .fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Phase label
+                Text(
+                    text = state.phaseLabel,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
                 Spacer(modifier = Modifier.height(8.dp))
-            }
 
-            // Phase label
-            Text(
-                text = state.phaseLabel,
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // LARGE timer display - the main focus
-            Text(
-                text = String.format(
-                    "%02d:%02d",
-                    state.remainingMinutes,
-                    state.remainingSeconds
-                ),
-                fontSize = 120.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Light,
-                letterSpacing = (-2).sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            // End time (only when running)
-            if (state.isRunning && state.remainingMillis > 0) {
+                // Timer display
                 Text(
-                    text = "→ ${formatEndTime(state.remainingMillis)}",
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = String.format(
+                        "%02d:%02d",
+                        state.remainingMinutes,
+                        state.remainingSeconds
+                    ),
+                    fontSize = 72.sp,
                     fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    fontWeight = FontWeight.Light,
+                    letterSpacing = (-2).sp,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-            }
 
-            // Elapsed time since session completed (only in IDLE after a session)
-            if (state.phase == PomodoroPhase.IDLE && state.sessionCompletedAt != null && elapsedSinceCompletion > 0) {
-                Text(
-                    text = "+${formatElapsedTime(elapsedSinceCompletion)}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Pomodoro indicators
-            PomodoroIndicators(
-                completedPomodoros = state.completedPomodoros,
-                currentInCycle = state.currentPomodoroInCycle,
-                totalInCycle = state.settings.pomodorosUntilLongBreak
-            )
-        }
-
-        // Right side - Progress and controls
-        Column(
-            modifier = Modifier.weight(0.6f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Compact progress circle (hide in IDLE to save space)
-            if (state.phase != PomodoroPhase.IDLE) {
-                PomodoroProgress(
-                    progress = state.progress,
-                    phase = state.phase,
-                    size = 160.dp,
-                    strokeWidth = 12.dp
-                ) {
+                // End time
+                if (state.remainingMillis > 0) {
                     Text(
-                        text = "${(state.progress * 100).toInt()}%",
-                        style = MaterialTheme.typography.headlineSmall,
+                        text = "→ ${formatEndTime(state.remainingMillis)}",
+                        style = MaterialTheme.typography.bodyMedium,
                         fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
+
+                // Pomodoro indicators
+                PomodoroIndicators(
+                    completedPomodoros = state.completedPomodoros,
+                    currentInCycle = state.currentPomodoroInCycle,
+                    totalInCycle = state.settings.pomodorosUntilLongBreak
+                )
+
+                Text(
+                    text = "Total: ${state.completedPomodoros}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Control buttons
+                PomodoroControlButtons(
+                    phase = state.phase,
+                    completedPomodoros = state.completedPomodoros,
+                    focusDuration = focusDuration,
+                    breakDuration = customBreakDuration,
+                    isLongBreak = state.currentPomodoroInCycle >= state.settings.pomodorosUntilLongBreak,
+                    hasTodosSelected = state.selectedTodoIds.isNotEmpty(),
+                    onFocusDurationChange = { focusDuration = (focusDuration + it).coerceIn(5, 120) },
+                    onBreakDurationChange = { customBreakDuration = (customBreakDuration + it).coerceIn(1, 60) },
+                    onStartWork = { skipTodos -> onStartWork(focusDuration, skipTodos) },
+                    onStartBreak = { onStartBreak(customBreakDuration) },
+                    onPause = onPause,
+                    onResume = onResume,
+                    onReset = onReset,
+                    onSkip = onSkip,
+                    compact = true
+                )
+            }
+        }
+    } else {
+        // Standard layout (idle, single todo, or no todos)
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(if (hasTodosInFocus) 12.dp else 24.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = if (hasTodosInFocus) Alignment.Top else Alignment.CenterVertically
+        ) {
+            // Left side - Large timer display
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = if (hasTodosInFocus) Arrangement.Top else Arrangement.Center
+            ) {
+                // Todo and Settings buttons (only when idle)
+                if (state.phase == PomodoroPhase.IDLE) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Todo button
+                        FilledIconButton(
+                            onClick = onShowTodos,
+                            modifier = Modifier.size(36.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = if (state.todoPool.isNotEmpty())
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.FormatListBulleted,
+                                contentDescription = "Todos",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        // Settings button
+                        FilledIconButton(
+                            onClick = onShowSettings,
+                            modifier = Modifier.size(36.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Todo list during focus (single todo case)
+                if (state.phase == PomodoroPhase.WORK && state.todos.size == 1) {
+                    FocusTodoList(
+                        todos = state.todos,
+                        onToggle = onToggleTodo,
+                        compact = true
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                } else {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Phase label
+                Text(
+                    text = state.phaseLabel,
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // LARGE timer display - the main focus
+                Text(
+                    text = String.format(
+                        "%02d:%02d",
+                        state.remainingMinutes,
+                        state.remainingSeconds
+                    ),
+                    fontSize = 120.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Light,
+                    letterSpacing = (-2).sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                // End time (only when running)
+                if (state.isRunning && state.remainingMillis > 0) {
+                    Text(
+                        text = "→ ${formatEndTime(state.remainingMillis)}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+
+                // Elapsed time since session completed (only in IDLE after a session)
+                if (state.phase == PomodoroPhase.IDLE && state.sessionCompletedAt != null && elapsedSinceCompletion > 0) {
+                    Text(
+                        text = "+${formatElapsedTime(elapsedSinceCompletion)}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Pomodoro indicators
+                PomodoroIndicators(
+                    completedPomodoros = state.completedPomodoros,
+                    currentInCycle = state.currentPomodoroInCycle,
+                    totalInCycle = state.settings.pomodorosUntilLongBreak
+                )
             }
 
-            Text(
-                text = "Total: ${state.completedPomodoros}",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            // Right side - Progress and controls
+            Column(
+                modifier = Modifier.weight(0.6f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Compact progress circle (hide in IDLE to save space)
+                if (state.phase != PomodoroPhase.IDLE) {
+                    PomodoroProgress(
+                        progress = state.progress,
+                        phase = state.phase,
+                        size = 160.dp,
+                        strokeWidth = 12.dp
+                    ) {
+                        Text(
+                            text = "${(state.progress * 100).toInt()}%",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
 
-            Spacer(modifier = Modifier.height(if (state.phase == PomodoroPhase.IDLE) 16.dp else 24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
 
-            // Compact control buttons for landscape
-            PomodoroControlButtons(
-                phase = state.phase,
-                completedPomodoros = state.completedPomodoros,
-                focusDuration = focusDuration,
-                breakDuration = customBreakDuration,
-                isLongBreak = state.currentPomodoroInCycle >= state.settings.pomodorosUntilLongBreak,
-                hasTodosSelected = state.selectedTodoIds.isNotEmpty(),
-                onFocusDurationChange = { focusDuration = (focusDuration + it).coerceIn(5, 120) },
-                onBreakDurationChange = { customBreakDuration = (customBreakDuration + it).coerceIn(1, 60) },
-                onStartWork = { skipTodos -> onStartWork(focusDuration, skipTodos) },
-                onStartBreak = { onStartBreak(customBreakDuration) },
-                onPause = onPause,
-                onResume = onResume,
-                onReset = onReset,
-                onSkip = onSkip,
-                compact = true
-            )
+                Text(
+                    text = "Total: ${state.completedPomodoros}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(if (state.phase == PomodoroPhase.IDLE) 16.dp else 24.dp))
+
+                // Compact control buttons for landscape
+                PomodoroControlButtons(
+                    phase = state.phase,
+                    completedPomodoros = state.completedPomodoros,
+                    focusDuration = focusDuration,
+                    breakDuration = customBreakDuration,
+                    isLongBreak = state.currentPomodoroInCycle >= state.settings.pomodorosUntilLongBreak,
+                    hasTodosSelected = state.selectedTodoIds.isNotEmpty(),
+                    onFocusDurationChange = { focusDuration = (focusDuration + it).coerceIn(5, 120) },
+                    onBreakDurationChange = { customBreakDuration = (customBreakDuration + it).coerceIn(1, 60) },
+                    onStartWork = { skipTodos -> onStartWork(focusDuration, skipTodos) },
+                    onStartBreak = { onStartBreak(customBreakDuration) },
+                    onPause = onPause,
+                    onResume = onResume,
+                    onReset = onReset,
+                    onSkip = onSkip,
+                    compact = true
+                )
+            }
         }
     }
 }
