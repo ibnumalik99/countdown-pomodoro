@@ -3,6 +3,8 @@ package com.countdownhour.ui.screens
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +22,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckBox
-import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Pause
@@ -50,6 +52,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -111,54 +114,56 @@ fun PomodoroScreen(
         }
     }
 
-    if (isLandscape) {
-        PomodoroLandscapeLayout(
-            state = state,
-            onStartWork = { duration -> viewModel.startWork(duration) },
-            onStartBreak = { duration -> viewModel.startBreak(duration) },
-            onPause = { viewModel.pause() },
-            onResume = { viewModel.resume() },
-            onReset = { viewModel.reset() },
-            onSkip = { viewModel.skipPhase() },
-            onShowSettings = { showSettings = true },
-            onShowTodos = { showTodoDialog = true },
-            onToggleTodo = { viewModel.toggleTodo(it) }
+    // Show todo pool screen or main pomodoro screen
+    if (showTodoDialog) {
+        TodoPoolScreen(
+            todos = state.todoPool,
+            selectedIds = state.selectedTodoIds,
+            onDismiss = { showTodoDialog = false },
+            onAddTodo = { viewModel.addTodoToPool(it) },
+            onRemoveTodo = { viewModel.removeTodoFromPool(it) },
+            onToggleSelection = { viewModel.toggleTodoSelection(it) }
         )
     } else {
-        PomodoroPortraitLayout(
-            state = state,
-            onStartWork = { duration -> viewModel.startWork(duration) },
-            onStartBreak = { duration -> viewModel.startBreak(duration) },
-            onPause = { viewModel.pause() },
-            onResume = { viewModel.resume() },
-            onReset = { viewModel.reset() },
-            onSkip = { viewModel.skipPhase() },
-            onShowSettings = { showSettings = true },
-            onShowTodos = { showTodoDialog = true },
-            onToggleTodo = { viewModel.toggleTodo(it) }
-        )
-    }
+        if (isLandscape) {
+            PomodoroLandscapeLayout(
+                state = state,
+                onStartWork = { duration, skipTodos -> viewModel.startWork(duration, skipTodos) },
+                onStartBreak = { duration -> viewModel.startBreak(duration) },
+                onPause = { viewModel.pause() },
+                onResume = { viewModel.resume() },
+                onReset = { viewModel.reset() },
+                onSkip = { viewModel.skipPhase() },
+                onShowSettings = { showSettings = true },
+                onShowTodos = { showTodoDialog = true },
+                onToggleTodo = { viewModel.toggleTodo(it) }
+            )
+        } else {
+            PomodoroPortraitLayout(
+                state = state,
+                onStartWork = { duration, skipTodos -> viewModel.startWork(duration, skipTodos) },
+                onStartBreak = { duration -> viewModel.startBreak(duration) },
+                onPause = { viewModel.pause() },
+                onResume = { viewModel.resume() },
+                onReset = { viewModel.reset() },
+                onSkip = { viewModel.skipPhase() },
+                onShowSettings = { showSettings = true },
+                onShowTodos = { showTodoDialog = true },
+                onToggleTodo = { viewModel.toggleTodo(it) }
+            )
+        }
 
-    // Settings dialog
-    if (showSettings) {
-        PomodoroSettingsDialog(
-            currentSettings = state.settings,
-            onDismiss = { showSettings = false },
-            onConfirm = { settings ->
-                viewModel.updateSettings(settings)
-                showSettings = false
-            }
-        )
-    }
-
-    // Todo dialog
-    if (showTodoDialog) {
-        PomodoroTodoDialog(
-            todos = state.todos,
-            onDismiss = { showTodoDialog = false },
-            onAddTodo = { viewModel.addTodo(it) },
-            onRemoveTodo = { viewModel.removeTodo(it) }
-        )
+        // Settings dialog
+        if (showSettings) {
+            PomodoroSettingsDialog(
+                currentSettings = state.settings,
+                onDismiss = { showSettings = false },
+                onConfirm = { settings ->
+                    viewModel.updateSettings(settings)
+                    showSettings = false
+                }
+            )
+        }
     }
 }
 
@@ -188,7 +193,7 @@ private fun formatElapsedTime(elapsedMillis: Long): String {
 @Composable
 private fun PomodoroPortraitLayout(
     state: PomodoroState,
-    onStartWork: (Int) -> Unit,
+    onStartWork: (Int, Boolean) -> Unit,
     onStartBreak: (Int) -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -223,12 +228,14 @@ private fun PomodoroPortraitLayout(
             elapsedSinceCompletion = 0L
         }
     }
+    val hasTodosInFocus = state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(horizontal = 24.dp, vertical = if (hasTodosInFocus) 12.dp else 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = if (hasTodosInFocus) Arrangement.Top else Arrangement.Center
     ) {
         // Todo and Settings buttons (only when idle)
         if (state.phase == PomodoroPhase.IDLE) {
@@ -271,7 +278,17 @@ private fun PomodoroPortraitLayout(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // Todo list during focus (at very top)
+        if (state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()) {
+            FocusTodoList(
+                todos = state.todos,
+                onToggle = onToggleTodo
+            )
+            // Flexible space to push content to center of remaining area
+            Spacer(modifier = Modifier.weight(1f))
+        } else {
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         // Phase label
         Text(
@@ -280,15 +297,6 @@ private fun PomodoroPortraitLayout(
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
-
-        // Todo list during focus
-        if (state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(12.dp))
-            FocusTodoList(
-                todos = state.todos,
-                onToggle = onToggleTodo
-            )
-        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -361,22 +369,28 @@ private fun PomodoroPortraitLayout(
             focusDuration = focusDuration,
             breakDuration = customBreakDuration,
             isLongBreak = state.currentPomodoroInCycle >= state.settings.pomodorosUntilLongBreak,
+            hasTodosSelected = state.selectedTodoIds.isNotEmpty(),
             onFocusDurationChange = { focusDuration = (focusDuration + it).coerceIn(5, 120) },
             onBreakDurationChange = { customBreakDuration = (customBreakDuration + it).coerceIn(1, 60) },
-            onStartWork = { onStartWork(focusDuration) },
+            onStartWork = { skipTodos -> onStartWork(focusDuration, skipTodos) },
             onStartBreak = { onStartBreak(customBreakDuration) },
             onPause = onPause,
             onResume = onResume,
             onReset = onReset,
             onSkip = onSkip
         )
+
+        // Bottom flexible space to center the block when todos are shown
+        if (hasTodosInFocus) {
+            Spacer(modifier = Modifier.weight(1f))
+        }
     }
 }
 
 @Composable
 private fun PomodoroLandscapeLayout(
     state: PomodoroState,
-    onStartWork: (Int) -> Unit,
+    onStartWork: (Int, Boolean) -> Unit,
     onStartBreak: (Int) -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -412,18 +426,20 @@ private fun PomodoroLandscapeLayout(
         }
     }
 
+    val hasTodosInFocus = state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()
+
     Row(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(if (hasTodosInFocus) 12.dp else 24.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = if (hasTodosInFocus) Alignment.Top else Alignment.CenterVertically
     ) {
         // Left side - Large timer display
         Column(
             modifier = Modifier.weight(1f),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = if (hasTodosInFocus) Arrangement.Top else Arrangement.Center
         ) {
             // Todo and Settings buttons (only when idle)
             if (state.phase == PomodoroPhase.IDLE) {
@@ -466,7 +482,17 @@ private fun PomodoroLandscapeLayout(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // Todo list during focus (at very top)
+            if (state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()) {
+                FocusTodoList(
+                    todos = state.todos,
+                    onToggle = onToggleTodo,
+                    compact = true
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // Phase label
             Text(
@@ -475,16 +501,6 @@ private fun PomodoroLandscapeLayout(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-
-            // Todo list during focus
-            if (state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                FocusTodoList(
-                    todos = state.todos,
-                    onToggle = onToggleTodo,
-                    compact = true
-                )
-            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -572,9 +588,10 @@ private fun PomodoroLandscapeLayout(
                 focusDuration = focusDuration,
                 breakDuration = customBreakDuration,
                 isLongBreak = state.currentPomodoroInCycle >= state.settings.pomodorosUntilLongBreak,
+                hasTodosSelected = state.selectedTodoIds.isNotEmpty(),
                 onFocusDurationChange = { focusDuration = (focusDuration + it).coerceIn(5, 120) },
                 onBreakDurationChange = { customBreakDuration = (customBreakDuration + it).coerceIn(1, 60) },
-                onStartWork = { onStartWork(focusDuration) },
+                onStartWork = { skipTodos -> onStartWork(focusDuration, skipTodos) },
                 onStartBreak = { onStartBreak(customBreakDuration) },
                 onPause = onPause,
                 onResume = onResume,
@@ -679,9 +696,10 @@ private fun PomodoroControlButtons(
     focusDuration: Int = 25,
     breakDuration: Int = 5,
     isLongBreak: Boolean = false,
+    hasTodosSelected: Boolean = false,
     onFocusDurationChange: (Int) -> Unit = {},
     onBreakDurationChange: (Int) -> Unit = {},
-    onStartWork: () -> Unit,
+    onStartWork: (Boolean) -> Unit,  // Boolean = skipTodos (true on long press)
     onStartBreak: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -699,14 +717,26 @@ private fun PomodoroControlButtons(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)
             ) {
-                // Focus section
+                // Focus section with long press support
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 12.dp)
                 ) {
+                    // Focus button with long press detection
+                    var isLongPressing by remember { mutableStateOf(false) }
+
                     OutlinedButton(
-                        onClick = onStartWork,
-                        modifier = Modifier.width(if (compact) 100.dp else 190.dp)
+                        onClick = { onStartWork(false) },  // Normal tap = with todos
+                        modifier = Modifier
+                            .width(if (compact) 100.dp else 190.dp)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onLongPress = {
+                                        isLongPressing = true
+                                        onStartWork(true)  // Long press = skip todos
+                                    }
+                                )
+                            }
                     ) {
                         Text(
                             if (compact) "${focusDuration}mn" else "Focus ${focusDuration}mn",
@@ -847,12 +877,16 @@ private fun FocusTodoList(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = if (compact) 8.dp else 16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(start = 8.dp, end = 8.dp, top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+        horizontalAlignment = Alignment.Start
     ) {
-        todos.forEachIndexed { index, todo ->
-            val isFirst = index == 0
-            val alpha = if (isFirst) 1f else 0.6f
+        todos.forEach { todo ->
+            // All todos black, light grey when completed
+            val textColor = if (todo.isCompleted)
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            else
+                MaterialTheme.colorScheme.onSurface
 
             Row(
                 modifier = Modifier
@@ -865,20 +899,21 @@ private fun FocusTodoList(
                             Color.Transparent
                     )
                     .clickable { onToggle(todo.id) }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Round checkbox (grey when completed)
                 Icon(
                     imageVector = if (todo.isCompleted)
-                        Icons.Default.CheckBox
+                        Icons.Default.CheckCircle
                     else
-                        Icons.Default.CheckBoxOutlineBlank,
+                        Icons.Default.RadioButtonUnchecked,
                     contentDescription = null,
-                    modifier = Modifier.size(if (compact) 16.dp else 20.dp),
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
+                    modifier = Modifier.size(if (compact) 18.dp else 22.dp),
+                    tint = textColor  // Same grey as text when completed
                 )
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
                 Text(
                     text = todo.text,
@@ -886,7 +921,7 @@ private fun FocusTodoList(
                         MaterialTheme.typography.bodySmall
                     else
                         MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+                    color = textColor,
                     textDecoration = if (todo.isCompleted)
                         TextDecoration.LineThrough
                     else
@@ -899,29 +934,44 @@ private fun FocusTodoList(
 }
 
 @Composable
-private fun PomodoroTodoDialog(
+private fun TodoPoolScreen(
     todos: List<PomodoroTodo>,
+    selectedIds: Set<String>,
     onDismiss: () -> Unit,
     onAddTodo: (String) -> Unit,
-    onRemoveTodo: (String) -> Unit
+    onRemoveTodo: (String) -> Unit,
+    onToggleSelection: (String) -> Unit
 ) {
     var inputText by remember { mutableStateOf("") }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Done")
-            }
-        },
-        title = { Text("Focus Tasks") },
-        text = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 80.dp)  // Space for fixed button
+        ) {
+            // Header
+            Text(
+                text = "Task Pool",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(24.dp)
+            )
+
+            // Scrollable content
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Input row (only if less than 3 todos)
-                if (todos.size < 3) {
+                // Input row (only if less than 15 todos)
+                if (todos.size < 15) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -930,21 +980,21 @@ private fun PomodoroTodoDialog(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(12.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                .padding(horizontal = 16.dp, vertical = 14.dp)
                         ) {
                             if (inputText.isEmpty()) {
                                 Text(
-                                    text = "What to focus on...",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    text = "Add a task...",
+                                    style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                 )
                             }
                             BasicTextField(
                                 value = inputText,
-                                onValueChange = { if (it.length <= 50) inputText = it },
-                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                onValueChange = { if (it.length <= 72) inputText = it },
+                                textStyle = MaterialTheme.typography.bodyLarge.copy(
                                     color = MaterialTheme.colorScheme.onSurface
                                 ),
                                 singleLine = false,
@@ -969,7 +1019,7 @@ private fun PomodoroTodoDialog(
                                     inputText = ""
                                 }
                             },
-                            modifier = Modifier.size(40.dp),
+                            modifier = Modifier.size(48.dp),
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.primary
                             )
@@ -977,59 +1027,122 @@ private fun PomodoroTodoDialog(
                             Icon(
                                 Icons.Default.Add,
                                 contentDescription = "Add",
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
                 }
 
-                // Todo list
+                // Selection hint
                 if (todos.isNotEmpty()) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        todos.forEach { todo ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = todo.text,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f),
-                                    maxLines = 2
-                                )
-
-                                IconButton(
-                                    onClick = { onRemoveTodo(todo.id) },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Remove",
-                                        modifier = Modifier.size(18.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } else {
                     Text(
-                        text = "Add up to 3 tasks to focus on during your session",
+                        text = "Select up to 3 tasks for your focus session (${selectedIds.size}/3)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.padding(top = 8.dp)
                     )
+                }
+
+                // Todo list with selection
+                todos.forEach { todo ->
+                    val isSelected = todo.id in selectedIds
+                    val canSelect = isSelected || selectedIds.size < 3
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (isSelected)
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            .clickable(enabled = canSelect) { onToggleSelection(todo.id) }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Selection indicator (round)
+                        Icon(
+                            imageVector = if (isSelected)
+                                Icons.Default.CheckCircle
+                            else
+                                Icons.Default.RadioButtonUnchecked,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = if (isSelected)
+                                MaterialTheme.colorScheme.primary
+                            else if (canSelect)
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Text(
+                            text = todo.text,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (canSelect)
+                                MaterialTheme.colorScheme.onSurface
+                            else
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 2
+                        )
+
+                        // Delete button
+                        IconButton(
+                            onClick = { onRemoveTodo(todo.id) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove",
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // Empty state
+                if (todos.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Add tasks to focus on during your sessions",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         }
-    )
+
+        // Fixed Done button at bottom
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(24.dp)
+        ) {
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Done",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+        }
+    }
 }

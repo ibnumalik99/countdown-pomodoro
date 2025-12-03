@@ -29,7 +29,12 @@ class PomodoroViewModel : ViewModel() {
         appContext = context.applicationContext
     }
 
-    fun startWork(customDurationMinutes: Int? = null) {
+    fun startWork(customDurationMinutes: Int? = null, skipTodoSelection: Boolean = false) {
+        // Activate selected todos before starting (unless skipped)
+        if (!skipTodoSelection) {
+            activateSelectedTodos()
+        }
+
         val state = _pomodoroState.value
         val settings = state.settings
         val durationMinutes = customDurationMinutes ?: settings.workDurationMinutes
@@ -44,7 +49,7 @@ class PomodoroViewModel : ViewModel() {
             state.currentPomodoroInCycle
         }
 
-        _pomodoroState.value = state.copy(
+        _pomodoroState.value = _pomodoroState.value.copy(
             phase = PomodoroPhase.WORK,
             totalMillis = totalMillis,
             remainingMillis = totalMillis,
@@ -183,22 +188,35 @@ class PomodoroViewModel : ViewModel() {
         }
     }
 
-    // Todo management
-    fun addTodo(text: String) {
+    // Todo pool management
+    fun addTodoToPool(text: String) {
         val state = _pomodoroState.value
-        if (state.todos.size < 3 && text.isNotBlank()) {
+        if (state.todoPool.size < 15 && text.isNotBlank()) {
             val newTodo = PomodoroTodo(text = text.trim())
             _pomodoroState.value = state.copy(
-                todos = state.todos + newTodo
+                todoPool = state.todoPool + newTodo
             )
         }
     }
 
-    fun removeTodo(id: String) {
+    fun removeTodoFromPool(id: String) {
         val state = _pomodoroState.value
         _pomodoroState.value = state.copy(
-            todos = state.todos.filter { it.id != id }
+            todoPool = state.todoPool.filter { it.id != id },
+            selectedTodoIds = state.selectedTodoIds - id
         )
+    }
+
+    fun toggleTodoSelection(id: String) {
+        val state = _pomodoroState.value
+        val newSelection = if (id in state.selectedTodoIds) {
+            state.selectedTodoIds - id
+        } else if (state.selectedTodoIds.size < 3) {
+            state.selectedTodoIds + id
+        } else {
+            state.selectedTodoIds  // Max 3 selected
+        }
+        _pomodoroState.value = state.copy(selectedTodoIds = newSelection)
     }
 
     fun toggleTodo(id: String) {
@@ -211,8 +229,19 @@ class PomodoroViewModel : ViewModel() {
         )
     }
 
+    private fun activateSelectedTodos() {
+        val state = _pomodoroState.value
+        val selectedTodos = state.todoPool
+            .filter { it.id in state.selectedTodoIds }
+            .map { it.copy(isCompleted = false) }  // Reset completion status
+        _pomodoroState.value = state.copy(todos = selectedTodos)
+    }
+
     fun clearTodos() {
-        _pomodoroState.value = _pomodoroState.value.copy(todos = emptyList())
+        _pomodoroState.value = _pomodoroState.value.copy(
+            todos = emptyList(),
+            selectedTodoIds = emptySet()
+        )
     }
 
     override fun onCleared() {

@@ -31,7 +31,9 @@ data class PomodoroState(
     val currentPomodoroInCycle: Int = 0,
     val settings: PomodoroSettings = PomodoroSettings(),
     val sessionCompletedAt: Long? = null,  // Timestamp when session finished (for idle timer)
-    val todos: List<PomodoroTodo> = emptyList()
+    val todoPool: List<PomodoroTodo> = emptyList(),  // All available todos (max 15)
+    val selectedTodoIds: Set<String> = emptySet(),  // IDs of todos selected for next session
+    val todos: List<PomodoroTodo> = emptyList()  // Active todos during focus session
 ) {
     val remainingMinutes: Int
         get() = (remainingMillis / 60000).toInt()
