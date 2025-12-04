@@ -1234,8 +1234,8 @@ private fun TodoPoolScreen(
                     // Done/Close button
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(18.dp))
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(15.dp))
                             .background(MaterialTheme.colorScheme.onSurface)
                             .clickable { onDismiss() },
                         contentAlignment = Alignment.Center
@@ -1243,7 +1243,7 @@ private fun TodoPoolScreen(
                         Icon(
                             Icons.Default.Check,
                             contentDescription = "Done",
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.surface
                         )
                     }
