@@ -1188,15 +1188,13 @@ private fun TodoPoolScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 80.dp)  // Space for fixed button
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Header with optional trash icon
+            // Header with trash and done icons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 16.dp, top = 24.dp, bottom = 24.dp),
+                    .padding(start = 24.dp, end = 16.dp, top = 24.dp, bottom = 20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -1206,24 +1204,44 @@ private fun TodoPoolScreen(
                     fontWeight = FontWeight.Bold
                 )
 
-                if (todos.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onDoubleTap = { onClearAll() },
-                                    onLongPress = { onClearCompleted() }
-                                )
-                            },
-                        contentAlignment = Alignment.Center
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (todos.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onDoubleTap = { onClearAll() },
+                                        onLongPress = { onClearCompleted() }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.DeleteOutline,
+                                contentDescription = "Double tap to clear all, long press to clear completed",
+                                modifier = Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Done/Close button
+                    FilledIconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(40.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
                     ) {
                         Icon(
-                            Icons.Default.DeleteOutline,
-                            contentDescription = "Double tap to clear all tasks",
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            Icons.Default.CheckCircle,
+                            contentDescription = "Done",
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
@@ -1235,7 +1253,7 @@ private fun TodoPoolScreen(
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Input row (only if less than 15 todos)
                 if (todos.size < 15) {
@@ -1364,25 +1382,6 @@ private fun TodoPoolScreen(
                 }
             }
         }
-
-        // Fixed Done button at bottom
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(24.dp)
-        ) {
-            OutlinedButton(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Done",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
     }
 }
 
@@ -1420,7 +1419,7 @@ private fun TodoPoolItem(
                     onLongPress = { onToggleCompletion() }
                 )
             }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Selection indicator (round)
