@@ -1231,22 +1231,16 @@ private fun TodoPoolScreen(
                         }
                     }
 
-                    // Done/Close button
-                    Box(
+                    // Done button
+                    Text(
+                        text = "DONE",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier
-                            .size(30.dp)
-                            .clip(RoundedCornerShape(15.dp))
-                            .background(MaterialTheme.colorScheme.onSurface)
-                            .clickable { onDismiss() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = "Done",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.surface
-                        )
-                    }
+                            .clickable { onDismiss() }
+                            .padding(horizontal = 8.dp)
+                    )
                 }
             }
 
