@@ -96,7 +96,9 @@ import java.util.Locale
 
 @Composable
 fun PomodoroScreen(
-    viewModel: PomodoroViewModel = viewModel()
+    viewModel: PomodoroViewModel = viewModel(),
+    showTodoDialog: Boolean = false,
+    onShowTodoDialogChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -104,7 +106,6 @@ fun PomodoroScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     var showSettings by remember { mutableStateOf(false) }
-    var showTodoDialog by remember { mutableStateOf(false) }
 
     // Set context for service integration
     LaunchedEffect(Unit) {
@@ -129,7 +130,7 @@ fun PomodoroScreen(
         TodoPoolScreen(
             todos = state.todoPool,
             selectedIds = state.selectedTodoIds,
-            onDismiss = { showTodoDialog = false },
+            onDismiss = { onShowTodoDialogChange(false) },
             onAddTodo = { viewModel.addTodoToPool(it) },
             onRemoveTodo = { viewModel.removeTodoFromPool(it) },
             onToggleSelection = { viewModel.toggleTodoSelection(it) },
@@ -150,7 +151,7 @@ fun PomodoroScreen(
                 onSkip = { viewModel.skipPhase() },
                 onAddTime = { viewModel.addTime(it) },
                 onShowSettings = { showSettings = true },
-                onShowTodos = { showTodoDialog = true },
+                onShowTodos = { onShowTodoDialogChange(true) },
                 onToggleTodo = { viewModel.toggleTodo(it) }
             )
         } else {
@@ -164,7 +165,7 @@ fun PomodoroScreen(
                 onSkip = { viewModel.skipPhase() },
                 onAddTime = { viewModel.addTime(it) },
                 onShowSettings = { showSettings = true },
-                onShowTodos = { showTodoDialog = true },
+                onShowTodos = { onShowTodoDialogChange(true) },
                 onToggleTodo = { viewModel.toggleTodo(it) }
             )
         }

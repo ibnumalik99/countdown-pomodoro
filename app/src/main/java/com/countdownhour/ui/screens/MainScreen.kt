@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -44,6 +45,7 @@ sealed class Tab(
 fun MainScreen() {
     val tabs = listOf(Tab.Countdown, Tab.Pomodoro)
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
+    var showTodoDialog by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {
@@ -54,7 +56,14 @@ fun MainScreen() {
                 tabs.forEachIndexed { index, tab ->
                     NavigationBarItem(
                         selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
+                        onClick = {
+                            if (selectedTabIndex == 1 && index == 1 && showTodoDialog) {
+                                // Tapping Pomodoro while task pool is open closes it
+                                showTodoDialog = false
+                            } else {
+                                selectedTabIndex = index
+                            }
+                        },
                         icon = {
                             Icon(
                                 imageVector = if (selectedTabIndex == index) {
@@ -81,7 +90,10 @@ fun MainScreen() {
         Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTabIndex) {
                 0 -> TimerScreen()
-                1 -> PomodoroScreen()
+                1 -> PomodoroScreen(
+                    showTodoDialog = showTodoDialog,
+                    onShowTodoDialogChange = { showTodoDialog = it }
+                )
             }
         }
     }
