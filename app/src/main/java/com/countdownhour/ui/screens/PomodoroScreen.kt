@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Close
@@ -1235,13 +1236,14 @@ private fun TodoPoolScreen(
                         onClick = onDismiss,
                         modifier = Modifier.size(40.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
+                            containerColor = MaterialTheme.colorScheme.onSurface
                         )
                     ) {
                         Icon(
-                            Icons.Default.CheckCircle,
+                            Icons.Default.Check,
                             contentDescription = "Done",
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.surface
                         )
                     }
                 }
