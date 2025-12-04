@@ -1,6 +1,9 @@
 package com.countdownhour.ui.screens
 
 import android.content.res.Configuration
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -37,10 +40,6 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -61,7 +60,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -130,7 +128,10 @@ fun PomodoroScreen(
         TodoPoolScreen(
             todos = state.todoPool,
             selectedIds = state.selectedTodoIds,
-            onDismiss = { onShowTodoDialogChange(false) },
+            onDismiss = {
+                viewModel.refreshActiveTodos()
+                onShowTodoDialogChange(false)
+            },
             onAddTodo = { viewModel.addTodoToPool(it) },
             onRemoveTodo = { viewModel.removeTodoFromPool(it) },
             onToggleSelection = { viewModel.toggleTodoSelection(it) },
@@ -325,71 +326,79 @@ private fun PomodoroPortraitLayout(
         ) {
             val dragThreshold = 40f
             val currentOnAddTime by rememberUpdatedState(onAddTime)
+            val currentOnShowTodos by rememberUpdatedState(onShowTodos)
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = if (state.isRunning) {
-                    Modifier.pointerInput(Unit) {
-                        var totalDrag = 0f
-                        awaitPointerEventScope {
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull()
-                                if (change != null && change.pressed) {
-                                    val dragAmount = change.position.y - change.previousPosition.y
-                                    totalDrag += dragAmount
+                modifier = Modifier
+                    .pointerInput(Unit) {
+                        detectTapGestures(onDoubleTap = { currentOnShowTodos() })
+                    }
+                    .pointerInput(state.isRunning) {
+                        if (state.isRunning) {
+                            var totalDrag = 0f
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                    val change = event.changes.firstOrNull()
+                                    if (change != null && change.pressed) {
+                                        val dragAmount = change.position.y - change.previousPosition.y
+                                        if (kotlin.math.abs(dragAmount) > 1f) {
+                                            totalDrag += dragAmount
 
-                                    while (totalDrag <= -dragThreshold) {
-                                        currentOnAddTime(1)
-                                        totalDrag += dragThreshold
+                                            while (totalDrag <= -dragThreshold) {
+                                                currentOnAddTime(1)
+                                                totalDrag += dragThreshold
+                                            }
+                                            while (totalDrag >= dragThreshold) {
+                                                currentOnAddTime(-1)
+                                                totalDrag -= dragThreshold
+                                            }
+                                        }
+                                    } else {
+                                        totalDrag = 0f
                                     }
-                                    while (totalDrag >= dragThreshold) {
-                                        currentOnAddTime(-1)
-                                        totalDrag -= dragThreshold
-                                    }
-                                    change.consume()
-                                } else {
-                                    totalDrag = 0f
                                 }
                             }
                         }
                     }
-                } else {
-                    Modifier
-                }
             ) {
-                // Timer display (swipeable during running sessions)
-                Text(
-                    text = String.format(
-                        "%02d:%02d",
-                        state.remainingMinutes,
-                        state.remainingSeconds
-                    ),
-                    style = MaterialTheme.typography.displayMedium,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Light,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                // End time (only when running)
-                if (state.isRunning && state.remainingMillis > 0) {
+                // Timer centered, secondary info below
+                Box(contentAlignment = Alignment.Center) {
+                    // Timer display (swipeable during running sessions, double-tap for todos)
                     Text(
-                        text = "→ ${formatEndTime(state.remainingMillis)}",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = String.format(
+                            "%02d:%02d",
+                            state.remainingMinutes,
+                            state.remainingSeconds
+                        ),
+                        style = MaterialTheme.typography.displayMedium,
                         fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        fontWeight = FontWeight.Light,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                }
 
-                // Elapsed time since session completed (only in IDLE after a session)
-                if (state.phase == PomodoroPhase.IDLE && state.sessionCompletedAt != null && elapsedSinceCompletion > 0) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "+${formatElapsedTime(elapsedSinceCompletion)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // End time positioned below timer
+                    if (state.isRunning && state.remainingMillis > 0) {
+                        Text(
+                            text = "→ ${formatEndTime(state.remainingMillis)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(top = 72.dp)
+                        )
+                    }
+
+                    // Elapsed time since session completed (only in IDLE after a session)
+                    if (state.phase == PomodoroPhase.IDLE && state.sessionCompletedAt != null && elapsedSinceCompletion > 0) {
+                        Text(
+                            text = "+${formatElapsedTime(elapsedSinceCompletion)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 72.dp)
+                        )
+                    }
                 }
             }
         }
@@ -521,12 +530,13 @@ private fun PomodoroLandscapeLayout(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Timer display (swipeable during running sessions)
+                // Timer display (swipeable during running sessions, double-tap for todos)
                 SwipeableTimerText(
                     minutes = state.remainingMinutes,
                     seconds = state.remainingSeconds,
                     isRunning = state.isRunning,
                     onAddMinutes = onAddTime,
+                    onDoubleTap = onShowTodos,
                     fontSize = 84.sp,
                     letterSpacing = (-2).sp
                 )
@@ -657,12 +667,13 @@ private fun PomodoroLandscapeLayout(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // LARGE timer display - the main focus (swipeable during running sessions)
+                // LARGE timer display - the main focus (swipeable during running sessions, double-tap for todos)
                 SwipeableTimerText(
                     minutes = state.remainingMinutes,
                     seconds = state.remainingSeconds,
                     isRunning = state.isRunning,
                     onAddMinutes = onAddTime,
+                    onDoubleTap = onShowTodos,
                     fontSize = 120.sp,
                     letterSpacing = (-2).sp
                 )
@@ -760,12 +771,14 @@ private fun SwipeableTimerText(
     seconds: Int,
     isRunning: Boolean,
     onAddMinutes: (Int) -> Unit,
+    onDoubleTap: () -> Unit = {},
     modifier: Modifier = Modifier,
     fontSize: androidx.compose.ui.unit.TextUnit = 84.sp,
     letterSpacing: androidx.compose.ui.unit.TextUnit = (-2).sp
 ) {
     val dragThreshold = 40f // pixels per 1 minute change
     val currentOnAddMinutes by rememberUpdatedState(onAddMinutes)
+    val currentOnDoubleTap by rememberUpdatedState(onDoubleTap)
 
     Text(
         text = String.format("%02d:%02d", minutes, seconds),
@@ -774,39 +787,41 @@ private fun SwipeableTimerText(
         fontWeight = FontWeight.Light,
         letterSpacing = letterSpacing,
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.then(
-            if (isRunning) {
-                Modifier.pointerInput(Unit) {
+        modifier = modifier
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onDoubleTap = { currentOnDoubleTap() }
+                )
+            }
+            .pointerInput(isRunning) {
+                if (isRunning) {
                     var totalDrag = 0f
                     awaitPointerEventScope {
                         while (true) {
-                            val event = awaitPointerEvent()
+                            val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                             val change = event.changes.firstOrNull()
                             if (change != null && change.pressed) {
                                 val dragAmount = change.position.y - change.previousPosition.y
-                                totalDrag += dragAmount
+                                // Only consume if actually dragging
+                                if (kotlin.math.abs(dragAmount) > 1f) {
+                                    totalDrag += dragAmount
 
-                                // Negative drag = swipe up = add time
-                                // Positive drag = swipe down = subtract time
-                                while (totalDrag <= -dragThreshold) {
-                                    currentOnAddMinutes(1)
-                                    totalDrag += dragThreshold
+                                    while (totalDrag <= -dragThreshold) {
+                                        currentOnAddMinutes(1)
+                                        totalDrag += dragThreshold
+                                    }
+                                    while (totalDrag >= dragThreshold) {
+                                        currentOnAddMinutes(-1)
+                                        totalDrag -= dragThreshold
+                                    }
                                 }
-                                while (totalDrag >= dragThreshold) {
-                                    currentOnAddMinutes(-1)
-                                    totalDrag -= dragThreshold
-                                }
-                                change.consume()
                             } else {
                                 totalDrag = 0f
                             }
                         }
                     }
                 }
-            } else {
-                Modifier
             }
-        )
     )
 }
 
@@ -1187,12 +1202,35 @@ private fun TodoPoolScreen(
     onRestoreTodos: (List<PomodoroTodo>, Set<String>) -> Unit
 ) {
     var inputText by remember { mutableStateOf("") }
-    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    // Custom snackbar state with countdown
+    var snackbarVisible by remember { mutableStateOf(false) }
+    var snackbarMessage by remember { mutableStateOf("") }
+    var snackbarBackupTodos by remember { mutableStateOf<List<PomodoroTodo>>(emptyList()) }
+    var snackbarBackupSelected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val snackbarProgress = remember { Animatable(1f) }
+    val snackbarDurationMs = 10000L
 
     // Split todos into active and completed
     val activeTodos = todos.filter { !it.isCompleted }
     val completedTodos = todos.filter { it.isCompleted }
+
+    // Animate countdown when snackbar is visible
+    LaunchedEffect(snackbarVisible) {
+        if (snackbarVisible) {
+            snackbarProgress.snapTo(1f)
+            snackbarProgress.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(
+                    durationMillis = snackbarDurationMs.toInt(),
+                    easing = LinearEasing
+                )
+            )
+            // Auto-dismiss when animation completes
+            snackbarVisible = false
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -1229,20 +1267,11 @@ private fun TodoPoolScreen(
                                     detectTapGestures(
                                         onDoubleTap = {
                                             // Store backup before clearing
-                                            val backupTodos = todos.toList()
-                                            val backupSelected = selectedIds.toSet()
-                                            val count = todos.size
+                                            snackbarBackupTodos = todos.toList()
+                                            snackbarBackupSelected = selectedIds.toSet()
+                                            snackbarMessage = "Cleared ${todos.size} tasks"
                                             onClearAll()
-                                            scope.launch {
-                                                val result = snackbarHostState.showSnackbar(
-                                                    message = "Cleared $count tasks",
-                                                    actionLabel = "UNDO",
-                                                    withDismissAction = false
-                                                )
-                                                if (result == SnackbarResult.ActionPerformed) {
-                                                    onRestoreTodos(backupTodos, backupSelected)
-                                                }
-                                            }
+                                            snackbarVisible = true
                                         },
                                         onLongPress = { onClearCompleted() }
                                     )
@@ -1407,11 +1436,61 @@ private fun TodoPoolScreen(
             }
         }
 
-        // Snackbar for undo
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
+        // Custom snackbar with progress bar countdown
+        if (snackbarVisible) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFF323232))
+            ) {
+                // Progress bar inside snackbar, 1px from top with matching border radius
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 1.dp, start = 2.dp, end = 2.dp)
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                        .background(Color.White.copy(alpha = 0.2f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .fillMaxWidth(snackbarProgress.value)
+                            .height(3.dp)
+                            .background(Color.White)
+                    )
+                }
+
+                // Content row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = snackbarMessage,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Text(
+                        text = "UNDO",
+                        color = MaterialTheme.colorScheme.inversePrimary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            snackbarVisible = false
+                            onRestoreTodos(snackbarBackupTodos, snackbarBackupSelected)
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 

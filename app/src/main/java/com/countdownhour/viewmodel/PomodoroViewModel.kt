@@ -368,6 +368,21 @@ class PomodoroViewModel : ViewModel() {
         _pomodoroState.value = state.copy(todos = selectedTodos)
     }
 
+    fun refreshActiveTodos() {
+        val state = _pomodoroState.value
+        // Only refresh if in a running session
+        if (state.phase == PomodoroPhase.WORK || state.phase == PomodoroPhase.PAUSED) {
+            val selectedTodos = state.todoPool
+                .filter { it.id in state.selectedTodoIds }
+                .map { todo ->
+                    // Preserve completion status from current active todos
+                    val existingTodo = state.todos.find { it.id == todo.id }
+                    existingTodo ?: todo.copy(isCompleted = false)
+                }
+            _pomodoroState.value = state.copy(todos = selectedTodos)
+        }
+    }
+
     fun clearTodos() {
         _pomodoroState.value = _pomodoroState.value.copy(
             todos = emptyList(),
