@@ -37,6 +37,10 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +55,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,6 +89,7 @@ import com.countdownhour.ui.components.PomodoroProgress
 import com.countdownhour.ui.components.PomodoroSettingsDialog
 import com.countdownhour.viewmodel.PomodoroViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -129,7 +135,8 @@ fun PomodoroScreen(
             onToggleSelection = { viewModel.toggleTodoSelection(it) },
             onToggleCompletion = { viewModel.toggleTodoPoolCompletion(it) },
             onClearAll = { viewModel.clearAllTodos() },
-            onClearCompleted = { viewModel.clearCompletedTodos() }
+            onClearCompleted = { viewModel.clearCompletedTodos() },
+            onRestoreTodos = { todos, selected -> viewModel.restoreTodos(todos, selected) }
         )
     } else {
         if (isLandscape) {
@@ -1175,9 +1182,12 @@ private fun TodoPoolScreen(
     onToggleSelection: (String) -> Unit,
     onToggleCompletion: (String) -> Unit,
     onClearAll: () -> Unit,
-    onClearCompleted: () -> Unit
+    onClearCompleted: () -> Unit,
+    onRestoreTodos: (List<PomodoroTodo>, Set<String>) -> Unit
 ) {
     var inputText by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     // Split todos into active and completed
     val activeTodos = todos.filter { !it.isCompleted }
@@ -1216,7 +1226,23 @@ private fun TodoPoolScreen(
                                 .clip(RoundedCornerShape(18.dp))
                                 .pointerInput(Unit) {
                                     detectTapGestures(
-                                        onDoubleTap = { onClearAll() },
+                                        onDoubleTap = {
+                                            // Store backup before clearing
+                                            val backupTodos = todos.toList()
+                                            val backupSelected = selectedIds.toSet()
+                                            val count = todos.size
+                                            onClearAll()
+                                            scope.launch {
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = "Cleared $count tasks",
+                                                    actionLabel = "UNDO",
+                                                    withDismissAction = false
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) {
+                                                    onRestoreTodos(backupTodos, backupSelected)
+                                                }
+                                            }
+                                        },
                                         onLongPress = { onClearCompleted() }
                                     )
                                 },
@@ -1379,6 +1405,12 @@ private fun TodoPoolScreen(
                 }
             }
         }
+
+        // Snackbar for undo
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 

@@ -254,6 +254,14 @@ class PomodoroViewModel : ViewModel() {
         persistData()
     }
 
+    fun restoreTodos(todos: List<PomodoroTodo>, selectedIds: Set<String>) {
+        _pomodoroState.value = _pomodoroState.value.copy(
+            todoPool = todos,
+            selectedTodoIds = selectedIds
+        )
+        persistData()
+    }
+
     fun skipPhase() {
         timerJob?.cancel()
         onPhaseComplete()
