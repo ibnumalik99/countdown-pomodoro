@@ -1212,8 +1212,8 @@ private fun TodoPoolScreen(
                     if (todos.isNotEmpty()) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(20.dp))
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(18.dp))
                                 .pointerInput(Unit) {
                                     detectTapGestures(
                                         onDoubleTap = { onClearAll() },
@@ -1225,19 +1225,20 @@ private fun TodoPoolScreen(
                             Icon(
                                 Icons.Default.DeleteOutline,
                                 contentDescription = "Double tap to clear all, long press to clear completed",
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(22.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
                     // Done/Close button
-                    FilledIconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(40.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.onSurface
-                        )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.onSurface)
+                            .clickable { onDismiss() },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.Check,
@@ -1305,7 +1306,7 @@ private fun TodoPoolScreen(
                                     inputText = ""
                                 }
                             },
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(40.dp),
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.primary
                             )
@@ -1313,7 +1314,7 @@ private fun TodoPoolScreen(
                             Icon(
                                 Icons.Default.Add,
                                 contentDescription = "Add",
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
