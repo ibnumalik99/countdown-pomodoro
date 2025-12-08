@@ -30,11 +30,11 @@ A minimalist Android countdown timer app with Pomodoro functionality, optimized 
 
 ### Pomodoro Timer
 - Classic Pomodoro technique implementation
-- Customizable durations:
-  - Focus session (default: 25 min)
-  - Short break (default: 5 min)
-  - Long break (default: 15 min)
-  - Pomodoros until long break (default: 4)
+- Customizable durations via slider controls:
+  - Focus session: 5-120 min (default: 25 min)
+  - Short break: 1-30 min (default: 5 min)
+  - Long break: 5-60 min (default: 15 min)
+  - Pomodoros until long break: 2-8 (default: 4)
 - Visual progress tracking with cycle indicators
 - Completed pomodoros counter
 - Elapsed time display after session completion
@@ -44,12 +44,15 @@ A minimalist Android countdown timer app with Pomodoro functionality, optimized 
   - Swipe up/down on timer to add/remove minutes
 
 ### Task Management
-- Task pool to store up to 15 tasks
+- Task pool to store up to 50 tasks
 - Select up to 5 tasks for each focus session
 - Tasks displayed in subtle card during focus
 - Tap to mark tasks as completed (strikethrough)
 - Completed tasks auto-unselected and moved to "DONE" section
+- Completed tasks cannot be re-selected for new sessions
 - Change task selection mid-session (double-tap timer to open task pool)
+- Preview selected tasks (long press 2s on task list icon)
+- Export tasks as markdown (long press "Task Pool" title)
 
 ### Gestures & Shortcuts
 | Action | Gesture |
@@ -60,9 +63,12 @@ A minimalist Android countdown timer app with Pomodoro functionality, optimized 
 | Adjust time during session | Swipe up/down on timer |
 | Fine-tune duration (±1 min) | Swipe up/down on duration text |
 | Open task pool during session | Double tap on timer |
+| Preview selected tasks | Long press (2s) task list icon |
 | Toggle task completion in pool | Long press on task |
+| Export tasks as markdown | Long press "Task Pool" title |
 | Clear all tasks | Double tap trash icon (with 10s undo) |
 | Clear only completed tasks | Long press trash icon |
+| Dismiss keyboard | Tap outside text field |
 
 ### Data Persistence
 - Tasks, settings, and progress saved automatically

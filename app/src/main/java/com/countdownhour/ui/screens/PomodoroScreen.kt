@@ -241,6 +241,10 @@ private fun PomodoroPortraitLayout(
     }
     var customBreakDuration by remember(breakDuration, isReset) { mutableStateOf(breakDuration) }
 
+    // Preview selected tasks state
+    var showSelectedTasksPreview by remember { mutableStateOf(false) }
+    val selectedTasks = state.todoPool.filter { it.id in state.selectedTodoIds && !it.isCompleted }
+
     LaunchedEffect(state.sessionCompletedAt) {
         if (state.sessionCompletedAt != null && state.phase == PomodoroPhase.IDLE) {
             while (true) {
@@ -253,200 +257,297 @@ private fun PomodoroPortraitLayout(
     }
     val hasTodosInFocus = state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()
 
-    Column(
+    // Main container with tap to dismiss preview
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = if (hasTodosInFocus) 12.dp else 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = if (hasTodosInFocus) Arrangement.Top else Arrangement.Center
-    ) {
-        // Todo and Settings buttons (only when idle)
-        if (state.phase == PomodoroPhase.IDLE) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Todo button
-                FilledIconButton(
-                    onClick = onShowTodos,
-                    modifier = Modifier.size(40.dp),
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = if (state.todoPool.isNotEmpty())
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Icon(
-                        Icons.Default.FormatListBulleted,
-                        contentDescription = "Todos",
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // Settings button
-                FilledIconButton(
-                    onClick = onShowSettings,
-                    modifier = Modifier.size(40.dp),
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Icon(
-                        Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-
-        // Todo list during focus (at very top)
-        if (state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()) {
-            FocusTodoList(
-                todos = state.todos,
-                onToggle = onToggleTodo
-            )
-            // Flexible space to push content to center of remaining area
-            Spacer(modifier = Modifier.weight(1f))
-        } else {
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        // Phase label
-        Text(
-            text = state.phaseLabel,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Pomodoro progress circle
-        PomodoroProgress(
-            progress = state.progress,
-            phase = state.phase
-        ) {
-            val dragThreshold = 40f
-            val currentOnAddTime by rememberUpdatedState(onAddTime)
-            val currentOnShowTodos by rememberUpdatedState(onShowTodos)
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .pointerInput(Unit) {
-                        detectTapGestures(onDoubleTap = { currentOnShowTodos() })
+            .then(
+                if (showSelectedTasksPreview) {
+                    Modifier.pointerInput(Unit) {
+                        detectTapGestures(onTap = { showSelectedTasksPreview = false })
                     }
-                    .pointerInput(state.isRunning) {
-                        if (state.isRunning) {
-                            var totalDrag = 0f
-                            awaitPointerEventScope {
-                                while (true) {
-                                    val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-                                    val change = event.changes.firstOrNull()
-                                    if (change != null && change.pressed) {
-                                        val dragAmount = change.position.y - change.previousPosition.y
-                                        if (kotlin.math.abs(dragAmount) > 1f) {
-                                            totalDrag += dragAmount
+                } else Modifier
+            )
+    ) {
+        // Preview of selected tasks (centered, replaces normal content)
+        if (showSelectedTasksPreview && state.phase == PomodoroPhase.IDLE) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                SelectedTasksPreview(tasks = selectedTasks)
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp, vertical = if (hasTodosInFocus) 12.dp else 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = if (hasTodosInFocus) Arrangement.Top else Arrangement.Center
+            ) {
+                // Todo and Settings buttons (only when idle)
+                if (state.phase == PomodoroPhase.IDLE) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Todo button with 2-second long press for preview
+                        var isPressed by remember { mutableStateOf(false) }
 
-                                            while (totalDrag <= -dragThreshold) {
-                                                currentOnAddTime(1)
-                                                totalDrag += dragThreshold
-                                            }
-                                            while (totalDrag >= dragThreshold) {
-                                                currentOnAddTime(-1)
-                                                totalDrag -= dragThreshold
-                                            }
-                                        }
-                                    } else {
-                                        totalDrag = 0f
-                                    }
+                        LaunchedEffect(isPressed) {
+                            if (isPressed && selectedTasks.isNotEmpty()) {
+                                delay(2000L)
+                                if (isPressed) {
+                                    showSelectedTasksPreview = true
+                                    isPressed = false
                                 }
                             }
                         }
+
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(
+                                    if (state.todoPool.isNotEmpty())
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .pointerInput(selectedTasks) {
+                                    detectTapGestures(
+                                        onPress = {
+                                            isPressed = true
+                                            tryAwaitRelease()
+                                            isPressed = false
+                                        },
+                                        onTap = { onShowTodos() }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.FormatListBulleted,
+                                contentDescription = "Todos",
+                                modifier = Modifier.size(20.dp),
+                                tint = if (state.todoPool.isNotEmpty())
+                                    MaterialTheme.colorScheme.onPrimary
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        // Settings button
+                        FilledIconButton(
+                            onClick = onShowSettings,
+                            modifier = Modifier.size(40.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
-            ) {
-                // Timer centered, secondary info below
-                Box(contentAlignment = Alignment.Center) {
-                    // Timer display (swipeable during running sessions, double-tap for todos)
-                    Text(
-                        text = String.format(
-                            "%02d:%02d",
-                            state.remainingMinutes,
-                            state.remainingSeconds
-                        ),
-                        style = MaterialTheme.typography.displayMedium,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Light,
-                        color = MaterialTheme.colorScheme.onSurface
+                }
+
+                // Todo list during focus (at very top)
+                if (state.phase == PomodoroPhase.WORK && state.todos.isNotEmpty()) {
+                    FocusTodoList(
+                        todos = state.todos,
+                        onToggle = onToggleTodo
                     )
+                    // Flexible space to push content to center of remaining area
+                    Spacer(modifier = Modifier.weight(1f))
+                } else {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
-                    // End time positioned below timer
-                    if (state.isRunning && state.remainingMillis > 0) {
-                        Text(
-                            text = "→ ${formatEndTime(state.remainingMillis)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(top = 72.dp)
-                        )
-                    }
+                // Phase label
+                Text(
+                    text = state.phaseLabel,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
 
-                    // Elapsed time since session completed (only in IDLE after a session)
-                    if (state.phase == PomodoroPhase.IDLE && state.sessionCompletedAt != null && elapsedSinceCompletion > 0) {
-                        Text(
-                            text = "+${formatElapsedTime(elapsedSinceCompletion)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 72.dp)
-                        )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Pomodoro progress circle
+                PomodoroProgress(
+                    progress = state.progress,
+                    phase = state.phase
+                ) {
+                    val dragThreshold = 40f
+                    val currentOnAddTime by rememberUpdatedState(onAddTime)
+                    val currentOnShowTodos by rememberUpdatedState(onShowTodos)
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .pointerInput(Unit) {
+                                detectTapGestures(onDoubleTap = { currentOnShowTodos() })
+                            }
+                            .pointerInput(state.isRunning) {
+                                if (state.isRunning) {
+                                    var totalDrag = 0f
+                                    awaitPointerEventScope {
+                                        while (true) {
+                                            val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                            val change = event.changes.firstOrNull()
+                                            if (change != null && change.pressed) {
+                                                val dragAmount = change.position.y - change.previousPosition.y
+                                                if (kotlin.math.abs(dragAmount) > 1f) {
+                                                    totalDrag += dragAmount
+
+                                                    while (totalDrag <= -dragThreshold) {
+                                                        currentOnAddTime(1)
+                                                        totalDrag += dragThreshold
+                                                    }
+                                                    while (totalDrag >= dragThreshold) {
+                                                        currentOnAddTime(-1)
+                                                        totalDrag -= dragThreshold
+                                                    }
+                                                }
+                                            } else {
+                                                totalDrag = 0f
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                    ) {
+                        // Timer centered, secondary info below
+                        Box(contentAlignment = Alignment.Center) {
+                            // Timer display (swipeable during running sessions, double-tap for todos)
+                            Text(
+                                text = String.format(
+                                    "%02d:%02d",
+                                    state.remainingMinutes,
+                                    state.remainingSeconds
+                                ),
+                                style = MaterialTheme.typography.displayMedium,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Light,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            // End time positioned below timer
+                            if (state.isRunning && state.remainingMillis > 0) {
+                                Text(
+                                    text = "→ ${formatEndTime(state.remainingMillis)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier.padding(top = 72.dp)
+                                )
+                            }
+
+                            // Elapsed time since session completed (only in IDLE after a session)
+                            if (state.phase == PomodoroPhase.IDLE && state.sessionCompletedAt != null && elapsedSinceCompletion > 0) {
+                                Text(
+                                    text = "+${formatElapsedTime(elapsedSinceCompletion)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 72.dp)
+                                )
+                            }
+                        }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Pomodoro indicators
+                PomodoroIndicators(
+                    completedPomodoros = state.completedPomodoros,
+                    currentInCycle = state.currentPomodoroInCycle,
+                    totalInCycle = state.settings.pomodorosUntilLongBreak
+                )
+
+                // Total completed
+                Text(
+                    text = "Completed: ${state.completedPomodoros}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Control buttons
+                PomodoroControlButtons(
+                    phase = state.phase,
+                    completedPomodoros = state.completedPomodoros,
+                    focusDuration = focusDuration,
+                    breakDuration = customBreakDuration,
+                    isLongBreak = state.currentPomodoroInCycle >= state.settings.pomodorosUntilLongBreak,
+                    hasTodosSelected = state.selectedTodoIds.isNotEmpty(),
+                    onFocusDurationChange = { focusDuration = (focusDuration + it).coerceIn(5, 120) },
+                    onBreakDurationChange = { customBreakDuration = (customBreakDuration + it).coerceIn(1, 60) },
+                    onStartWork = { skipTodos -> onStartWork(focusDuration, skipTodos) },
+                    onStartBreak = { onStartBreak(customBreakDuration) },
+                    onPause = onPause,
+                    onResume = onResume,
+                    onReset = onReset,
+                    onSkip = onSkip,
+                    onAddTime = onAddTime
+                )
+
+                // Bottom flexible space to center the block when todos are shown
+                if (hasTodosInFocus) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
+    }
+}
 
-        Spacer(modifier = Modifier.height(16.dp))
+// Preview of selected tasks for idle mode (read-only, no toggle)
+@Composable
+private fun SelectedTasksPreview(tasks: List<PomodoroTodo>) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+            .padding(16.dp)
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            tasks.forEach { todo ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RadioButtonUnchecked,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
 
-        // Pomodoro indicators
-        PomodoroIndicators(
-            completedPomodoros = state.completedPomodoros,
-            currentInCycle = state.currentPomodoroInCycle,
-            totalInCycle = state.settings.pomodorosUntilLongBreak
-        )
+                    Spacer(modifier = Modifier.width(10.dp))
 
-        // Total completed
-        Text(
-            text = "Completed: ${state.completedPomodoros}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Control buttons
-        PomodoroControlButtons(
-            phase = state.phase,
-            completedPomodoros = state.completedPomodoros,
-            focusDuration = focusDuration,
-            breakDuration = customBreakDuration,
-            isLongBreak = state.currentPomodoroInCycle >= state.settings.pomodorosUntilLongBreak,
-            hasTodosSelected = state.selectedTodoIds.isNotEmpty(),
-            onFocusDurationChange = { focusDuration = (focusDuration + it).coerceIn(5, 120) },
-            onBreakDurationChange = { customBreakDuration = (customBreakDuration + it).coerceIn(1, 60) },
-            onStartWork = { skipTodos -> onStartWork(focusDuration, skipTodos) },
-            onStartBreak = { onStartBreak(customBreakDuration) },
-            onPause = onPause,
-            onResume = onResume,
-            onReset = onReset,
-            onSkip = onSkip,
-            onAddTime = onAddTime
-        )
-
-        // Bottom flexible space to center the block when todos are shown
-        if (hasTodosInFocus) {
-            Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = todo.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }
@@ -1413,7 +1514,7 @@ private fun TodoPoolScreen(
                                 containerColor = if (inputText.isNotBlank())
                                     MaterialTheme.colorScheme.primary
                                 else
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                             )
                         ) {
                             Icon(
@@ -1429,7 +1530,7 @@ private fun TodoPoolScreen(
                         text = "Task limit reached (50 max)",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
