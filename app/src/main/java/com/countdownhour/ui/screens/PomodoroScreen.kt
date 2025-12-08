@@ -47,6 +47,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -1525,7 +1526,13 @@ private fun TodoPoolScreen(
                             Icon(
                                 Icons.Default.Add,
                                 contentDescription = "Add",
-                                modifier = Modifier.size(22.dp).alpha(0.40f)
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .then(if (inputText.isBlank()) Modifier.alpha(0.40f) else Modifier),
+                                tint = if (inputText.isNotBlank())
+                                    Color.White
+                                else
+                                    LocalContentColor.current
                             )
                         }
                     }
