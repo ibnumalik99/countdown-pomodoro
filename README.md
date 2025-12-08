@@ -51,7 +51,8 @@ A minimalist Android countdown timer app with Pomodoro functionality, optimized 
 - Completed tasks auto-unselected and moved to "DONE" section
 - Completed tasks cannot be re-selected for new sessions
 - Change task selection mid-session (double-tap timer to open task pool)
-- Preview selected tasks (long press 2s on task list icon)
+- Preview selected tasks (long press 1s on task list icon)
+- Edit/rename tasks (swipe left on task)
 - Export tasks as markdown (long press "Task Pool" title)
 
 ### Gestures & Shortcuts
@@ -63,7 +64,8 @@ A minimalist Android countdown timer app with Pomodoro functionality, optimized 
 | Adjust time during session | Swipe up/down on timer |
 | Fine-tune duration (±1 min) | Swipe up/down on duration text |
 | Open task pool during session | Double tap on timer |
-| Preview selected tasks | Long press (2s) task list icon |
+| Preview selected tasks | Long press (1s) task list icon |
+| Edit/rename task | Swipe left on task |
 | Toggle task completion in pool | Long press on task |
 | Export tasks as markdown | Long press "Task Pool" title |
 | Clear all tasks | Double tap trash icon (with 10s undo) |
